@@ -1,0 +1,52 @@
+export enum TableSize {
+  LARGE = '6x4',
+  SMALL = '3x4'
+}
+
+export interface Table {
+  id: string;
+  name: string;
+  size: TableSize;
+}
+
+export enum TerrainCategory {
+  SCIFI = 'Sci-Fi',
+  HISTORICAL = 'Historical',
+  FANTASY = 'Fantasy',
+  AOS = 'Age of Sigmar',
+  WARHAMMER_40K = 'Warhammer 40k',
+  HILLS = 'Hills',
+  MODERN = 'Modern'
+}
+
+export interface TerrainBox {
+  id: string;
+  category: TerrainCategory;
+  name: string;
+  imageUrl: string;
+}
+
+export interface Booking {
+  id: string;
+  date: string; // YYYY-MM-DD
+  tableId: string;
+  terrainBoxId?: string | null; // Optional
+  memberName: string;
+  memberId: string; // To link to logged in user
+  gameSystem: string;
+  playerCount: number;
+  timestamp: number;
+}
+
+export interface User {
+  id: string; // Firebase UID
+  email: string;
+  name: string;
+  isMember: boolean;
+  isAdmin?: boolean;
+}
+
+export interface DateStat {
+  date: string;
+  game: string;
+}
