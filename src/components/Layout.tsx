@@ -94,7 +94,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogin, onLogou
                 type="button"
                 className="bg-neutral-800 inline-flex items-center justify-center p-2 rounded-md text-neutral-400 hover:text-white hover:bg-neutral-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-neutral-800 focus:ring-white"
                 aria-controls="mobile-menu"
-                aria-expanded="false"
+                aria-expanded={isMobileMenuOpen}
               >
                 <span className="sr-only">Open main menu</span>
                 {/* Icon when menu is closed */}
@@ -179,3 +179,4 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, onLogin, onLogou
     </div>
   );
 };
+    
