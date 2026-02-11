@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Booking, TerrainCategory, User, Table, TerrainBox } from '../types';
-import { getBookings } from '../services/storageService';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -13,11 +12,12 @@ interface BookingModalProps {
   cancelledDates: string[];
   bookableDates: string[];
   initialDate: string;
+  allBookings: Booking[];
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({ 
     isOpen, onClose, onSave, user, editingBooking, tables, 
-    terrainBoxes, cancelledDates, bookableDates, initialDate 
+    terrainBoxes, cancelledDates, bookableDates, initialDate, allBookings 
 }) => {
   const [date, setDate] = useState(editingBooking?.date || initialDate || bookableDates[0]);
   const [selectedTableId, setSelectedTableId] = useState<string>('');
@@ -51,7 +51,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   }, [isOpen, editingBooking, initialDate, bookableDates]);
 
   useEffect(() => {
-    const bookings = getBookings().filter(b => b.date === date);
+    const bookings = allBookings.filter(b => b.date === date);
     const takenTables = new Map<string, string>();
     const takenTerrain = new Map<string, string>();
 

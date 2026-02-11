@@ -1,24 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { getBookings } from '../services/storageService';
+import { subscribeBookings } from '../services/firebaseService';
 
 export const StatsView: React.FC = () => {
   const [data, setData] = useState<{name: string, count: number}[]>([]);
   const [totalGames, setTotalGames] = useState(0);
 
   useEffect(() => {
-    const bookings = getBookings();
-    setTotalGames(bookings.length);
-    const counts: Record<string, number> = {};
-    bookings.forEach(b => {
-      const game = b.gameSystem.trim();
-      counts[game] = (counts[game] || 0) + 1;
+    const unsub = subscribeBookings((bookings) => {
+      setTotalGames(bookings.length);
+      const counts: Record<string, number> = {};
+      bookings.forEach(b => {
+        const game = b.gameSystem.trim();
+        counts[game] = (counts[game] || 0) + 1;
+      });
+      const chartData = Object.entries(counts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+      setData(chartData);
     });
-    const chartData = Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-    setData(chartData);
+    return () => unsub();
   }, []);
 
   const COLORS = ['#d97706', '#b45309', '#92400e', '#78350f', '#451a03', '#57534e'];
