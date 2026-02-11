@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-type NavKey = 'home' | 'about' | 'layout' | 'stats' | 'profile' | 'admin';
+type NavKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin';
 
 export interface LayoutProps {
   user: { id: string; name: string; isMember: boolean; isAdmin?: boolean } | null;
@@ -67,6 +67,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <nav className="hidden lg:flex items-center gap-1">
             <NavLink to="home">Book a Table</NavLink>
             <NavLink to="about">About</NavLink>
+            <NavLink to="membership">Membership</NavLink>
             <NavLink to="layout">Club Layout</NavLink>
             {user?.isAdmin && <NavLink to="stats">Stats</NavLink>}
             {user && <NavLink to="profile">Profile</NavLink>}
@@ -133,6 +134,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className="px-4 py-3 space-y-1">
             <NavLink to="home">Book a Table</NavLink>
             <NavLink to="about">About</NavLink>
+            <NavLink to="membership">Membership</NavLink>
             <NavLink to="layout">Club Layout</NavLink>
             {user?.isAdmin && <NavLink to="stats">Stats</NavLink>}
             {user && <NavLink to="profile">Profile</NavLink>}

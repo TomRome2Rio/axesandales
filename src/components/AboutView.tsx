@@ -151,6 +151,7 @@ export const AboutView: React.FC = () => {
           ))}
         </div>
       </div>
+
     </div>
   );
 };

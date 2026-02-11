@@ -42,6 +42,7 @@ export interface User {
   name: string;
   isMember: boolean;
   isAdmin?: boolean;
+  membershipPaidDate?: string; // ISO date string (YYYY-MM-DD) of when membership was last paid
 }
 
 export interface DateStat {

@@ -36,6 +36,7 @@ export const getUserProfile = async (uid: string): Promise<User | null> => {
             name: data.name,
             isMember: data.isMember,
             isAdmin: data.isAdmin,
+            membershipPaidDate: data.membershipPaidDate,
         };
     }
     return null;

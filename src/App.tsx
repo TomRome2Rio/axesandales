@@ -6,6 +6,7 @@ import { StatsView } from './components/StatsView';
 import { AdminView } from './components/AdminView';
 import { ProfileView } from './components/ProfileView';
 import { AboutView } from './components/AboutView';
+import { MembershipView } from './components/MembershipView';
 import { ClubLayoutView } from './components/ClubLayoutView';
 import { auth } from './firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -14,7 +15,7 @@ import { getSelectableDates, getUpcomingTuesdays } from './constants';
 import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory } from './types';
 
 const App: React.FC = () => {
-const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'layout' | 'stats' | 'profile' | 'admin'>('home');
+const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin'>('home');
 const [user, setUser] = useState<User | null>(null);
 const [loading, setLoading] = useState(true);
 
@@ -189,7 +190,12 @@ return (
   </div>
   <div>
     <h3 className="text-amber-300 font-semibold">Unpaid Membership</h3>
-    <p className="text-neutral-400 text-sm mt-1">Your membership is not yet active. You can browse the dashboard but cannot book tables until an admin confirms your payment.</p>
+    <p className="text-neutral-400 text-sm mt-1">Your membership is not yet active. You can browse the dashboard but cannot book tables until your payment has been confirmed.</p>
+    <p className="text-neutral-400 text-sm mt-1">
+      To pay for your membership, head to the{' '}
+      <button onClick={() => setCurrentPage('membership')} className="text-amber-400 hover:text-amber-300 underline font-medium">Membership &amp; Payment</button>{' '}
+      page for details and to pay. Be sure to include your sign-up email (<span className="text-white font-medium">{user.email}</span>) with your payment.
+    </p>
     <p className="text-neutral-400 text-sm mt-1">If you have any questions, please email <a href="mailto:axesandalescommittee@gmail.com" className="text-amber-400 hover:text-amber-300 underline">axesandalescommittee@gmail.com</a>.</p>
   </div>
 </div>
@@ -326,6 +332,7 @@ return (
 <Layout user={user} onLogin={() => setIsLoginModalOpen(true)} onLogout={handleLogout} currentPage={currentPage} onNavigate={setCurrentPage}>
 {currentPage === 'home' && renderDashboard()}
 {currentPage === 'about' && <AboutView />}
+{currentPage === 'membership' && <MembershipView />}
 {currentPage === 'layout' && <ClubLayoutView />}
 {currentPage === 'stats' && <StatsView />}
     {currentPage === 'profile' && user && <ProfileView user={user} />}

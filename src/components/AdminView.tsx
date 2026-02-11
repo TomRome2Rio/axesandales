@@ -104,17 +104,49 @@ export const AdminView: React.FC<AdminViewProps> = ({
     if(confirm('Delete this terrain box?')) onTerrainChange(terrainBoxes.filter(t => t.id !== id));
   }
 
+  const getMembershipExpiry = (paidDate: string): string => {
+    const paid = new Date(paidDate + 'T00:00:00');
+    const year = paid.getFullYear();
+    // Financial year runs July 1 - June 30
+    // If paid on or after July 1, expires June 30 of next year
+    // If paid before July 1, expires June 30 of same year
+    const expiryYear = paid.getMonth() >= 6 ? year + 1 : year; // getMonth() is 0-indexed, so 6 = July
+    return `${expiryYear}-06-30`;
+  };
+
+  const formatDate = (dateStr: string): string => {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+
   const handleSetRole = async (uid: string, role: 'pending' | 'member' | 'admin') => {
     if (uid === currentUser.id) return alert("Cannot change your own role.");
     try {
-      const updates: Partial<User> = {
+      const today = new Date().toISOString().split('T')[0];
+      const updates: Record<string, unknown> = {
         isMember: role === 'member' || role === 'admin',
         isAdmin: role === 'admin',
       };
-      await firebaseService.updateUserProfile(uid, updates);
+      if ((role === 'member' || role === 'admin') && !users.find(u => u.id === uid)?.membershipPaidDate) {
+        updates.membershipPaidDate = today;
+      }
+      if (role === 'pending') {
+        updates.membershipPaidDate = null;
+      }
+      await firebaseService.updateUserProfile(uid, updates as Partial<User>);
       onUsersChange();
     } catch (e) {
       alert('Error updating user role. Check console.');
+      console.error(e);
+    }
+  };
+
+  const handleRenewMembership = async (uid: string) => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      await firebaseService.updateUserProfile(uid, { membershipPaidDate: today } as Partial<User>);
+      onUsersChange();
+    } catch (e) {
+      alert('Error renewing membership. Check console.');
       console.error(e);
     }
   };
@@ -269,12 +301,25 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                     {role === 'admin' && <span className="text-xs text-amber-400 bg-amber-900/50 px-2 py-0.5 rounded-full border border-amber-800">Admin</span>}
                                 </div>
                                 <span className="text-xs text-neutral-500 truncate block">{u.email}</span>
+                                {u.membershipPaidDate && (role === 'member' || role === 'admin') && (
+                                  <div className="flex gap-3 mt-1">
+                                    <span className="text-xs text-neutral-500">Paid: <span className="text-neutral-300">{formatDate(u.membershipPaidDate)}</span></span>
+                                    <span className="text-xs text-neutral-500">Expires: <span className={`${new Date(getMembershipExpiry(u.membershipPaidDate) + 'T00:00:00') < new Date() ? 'text-red-400' : 'text-neutral-300'}`}>{formatDate(getMembershipExpiry(u.membershipPaidDate))}</span></span>
+                                  </div>
+                                )}
                             </div>
                         </div>
-                        {!isSelf && (
-                            <div className="flex gap-2 mt-2 md:mt-0 flex-shrink-0">
+                        <div className="flex gap-2 mt-2 md:mt-0 flex-shrink-0 flex-wrap">
+                            {isSelf && (role === 'member' || role === 'admin') && (
+                                <button onClick={() => handleRenewMembership(u.id)} className="text-xs bg-green-800 hover:bg-green-700 text-green-100 px-3 py-1.5 rounded font-medium transition-colors">Renew Membership</button>
+                            )}
+                            {!isSelf && (
+                              <>
                                 {role === 'pending' && (
                                     <button onClick={() => handleSetRole(u.id, 'member')} className="text-xs bg-green-800 hover:bg-green-700 text-green-100 px-3 py-1.5 rounded font-medium transition-colors">Mark as Paid</button>
+                                )}
+                                {(role === 'member' || role === 'admin') && (
+                                    <button onClick={() => handleRenewMembership(u.id)} className="text-xs bg-green-800 hover:bg-green-700 text-green-100 px-3 py-1.5 rounded font-medium transition-colors">Renew Membership</button>
                                 )}
                                 {role === 'member' && (
                                     <button onClick={() => handleSetRole(u.id, 'admin')} className="text-xs bg-amber-800 hover:bg-amber-700 text-amber-100 px-3 py-1.5 rounded font-medium transition-colors">Make Admin</button>
@@ -286,8 +331,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                     <button onClick={() => handleSetRole(u.id, 'pending')} className="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-3 py-1.5 rounded font-medium transition-colors">Remove Membership</button>
                                 )}
                                 <button onClick={() => handleDeleteUser(u.id)} className="text-xs bg-red-900/50 hover:bg-red-900 text-red-300 px-3 py-1.5 rounded font-medium transition-colors">Delete</button>
-                            </div>
-                        )}
+                              </>
+                            )}
+                        </div>
                     </div>
                 );
             })}
