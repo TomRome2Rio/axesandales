@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-type NavKey = 'home' | 'stats' | 'profile' | 'admin';
+type NavKey = 'home' | 'about' | 'layout' | 'stats' | 'profile' | 'admin';
 
 export interface LayoutProps {
   user: { id: string; name: string; isMember: boolean; isAdmin?: boolean } | null;
@@ -59,17 +59,17 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-md bg-amber-600 flex items-center justify-center font-black">
-              AA
-            </div>
+            <img src={`${import.meta.env.BASE_URL}images/logo.svg`} alt="Axes & Ales" className="h-8 w-8" />
             <span className="font-extrabold tracking-wide">Axes & Ales</span>
           </div>
 
           {/* Desktop nav */}
           <nav className="hidden lg:flex items-center gap-1">
-            <NavLink to="home">Dashboard</NavLink>
-            <NavLink to="stats">Stats</NavLink>
-            {user && !user.isAdmin && <NavLink to="profile">Profile</NavLink>}
+            <NavLink to="home">Book a Table</NavLink>
+            <NavLink to="about">About</NavLink>
+            <NavLink to="layout">Club Layout</NavLink>
+            {user?.isAdmin && <NavLink to="stats">Stats</NavLink>}
+            {user && <NavLink to="profile">Profile</NavLink>}
             {user?.isAdmin && <NavLink to="admin">Admin</NavLink>}
           </nav>
 
@@ -131,9 +131,11 @@ export const Layout: React.FC<LayoutProps> = ({
           }`}
         >
           <div className="px-4 py-3 space-y-1">
-            <NavLink to="home">Dashboard</NavLink>
-            <NavLink to="stats">Stats</NavLink>
-            {user && !user.isAdmin && <NavLink to="profile">Profile</NavLink>}
+            <NavLink to="home">Book a Table</NavLink>
+            <NavLink to="about">About</NavLink>
+            <NavLink to="layout">Club Layout</NavLink>
+            {user?.isAdmin && <NavLink to="stats">Stats</NavLink>}
+            {user && <NavLink to="profile">Profile</NavLink>}
             {user?.isAdmin && <NavLink to="admin">Admin</NavLink>}
 
             <div className="pt-2 border-t border-neutral-800 mt-2">

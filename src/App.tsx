@@ -5,6 +5,8 @@ import { LoginModal } from './components/LoginModal';
 import { StatsView } from './components/StatsView';
 import { AdminView } from './components/AdminView';
 import { ProfileView } from './components/ProfileView';
+import { AboutView } from './components/AboutView';
+import { ClubLayoutView } from './components/ClubLayoutView';
 import { auth } from './firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import * as firebaseService from './services/firebaseService';
@@ -21,7 +23,7 @@ import { Booking, User, Table, TerrainBox } from './types';
 initInventory();
 
 const App: React.FC = () => {
-const [currentPage, setCurrentPage] = useState('home');
+const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'layout' | 'stats' | 'profile' | 'admin'>('home');
 const [user, setUser] = useState<User | null>(null);
 const [loading, setLoading] = useState(true);
 
@@ -191,9 +193,6 @@ Table Status
 {tables.map(table => {
 const booking = bookingsForSelectedDate.find(b => b.tableId === table.id);
 const isMyBooking = user && booking?.memberId === user.id;
-code Code
-
-    
 return (
                         <div key={table.id} className={`relative rounded-xl border-2 p-4 transition-all duration-300 ${booking ? (isMyBooking ? 'bg-amber-900/20 border-amber-600/50' : 'bg-red-900/10 border-red-900/30') : 'bg-neutral-800 border-neutral-700 hover:border-neutral-500'}`}>
                             <div className="flex justify-between items-start mb-2">
@@ -242,6 +241,8 @@ return (
 <>
 <Layout user={user} onLogin={() => setIsLoginModalOpen(true)} onLogout={handleLogout} currentPage={currentPage} onNavigate={setCurrentPage}>
 {currentPage === 'home' && renderDashboard()}
+{currentPage === 'about' && <AboutView />}
+{currentPage === 'layout' && <ClubLayoutView />}
 {currentPage === 'stats' && <StatsView />}
 {currentPage === 'profile' && user && !user.isAdmin && <ProfileView user={user} />}
 {currentPage === 'admin' && user?.isAdmin && (
@@ -280,4 +281,3 @@ initialDate={selectedDate}
 };
 
 export default App;
-]
