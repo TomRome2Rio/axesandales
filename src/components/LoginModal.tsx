@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { login, register, signInWithGoogle } from '../services/firebaseService';
+import { login, register, signInWithGoogle, resetPassword } from '../services/firebaseService';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -16,11 +16,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [resetSent, setResetSent] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const resetForm = () => {
     setEmail(''); setPassword(''); setConfirmPassword(''); setName('');
-    setError(''); setSuccessMessage('');
+    setError(''); setSuccessMessage(''); setResetSent(false);
   };
 
   const switchTab = (newTab: AuthTab) => {
@@ -61,6 +62,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         setError('Please enter a valid email address.');
       } else {
         setError('Registration failed. Please try again.');
+      }
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!email.trim()) { setError('Please enter your email address first.'); return; }
+    setError(''); setLoading(true);
+    try {
+      await resetPassword(email);
+      setResetSent(true);
+    } catch (err: any) {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
+        setError('No account found with that email address.');
+      } else {
+        setError('Failed to send reset email. Please try again.');
       }
       console.error(err);
     } finally {
@@ -172,7 +191,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
                 <label className="block text-sm text-neutral-400 mb-1">Password</label>
                 <input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="w-full bg-neutral-900 border border-neutral-600 rounded px-3 py-2 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none" />
               </div>
+              {resetSent && <p className="text-sm text-green-400">Password reset email sent! Check your inbox.</p>}
               {error && <p className="text-sm text-red-400">{error}</p>}
+              <div className="flex justify-end">
+                <button type="button" onClick={handleResetPassword} disabled={loading} className="text-xs text-amber-400 hover:text-amber-300 transition-colors">
+                  Forgot your password?
+                </button>
+              </div>
               <button type="submit" disabled={loading} className="w-full mt-2 px-8 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-lg font-bold shadow-lg shadow-amber-900/20 transition-all hover:translate-y-px text-sm disabled:opacity-50 disabled:cursor-not-allowed">
                 {loading ? 'Signing in...' : 'Sign In'}
               </button>

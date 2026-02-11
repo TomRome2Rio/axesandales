@@ -4,7 +4,8 @@ import {
     signOut,
     updatePassword,
     GoogleAuthProvider,
-    signInWithPopup
+    signInWithPopup,
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import { 
     doc, 
@@ -23,6 +24,11 @@ import { User, Booking, Table, TerrainBox } from '../types';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
 
 const googleProvider = new GoogleAuthProvider();
+
+// Send a password reset email
+export const resetPassword = async (email: string): Promise<void> => {
+    await sendPasswordResetEmail(auth, email);
+};
 
 // Fetch a user's profile from Firestore
 export const getUserProfile = async (uid: string): Promise<User | null> => {

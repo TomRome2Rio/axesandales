@@ -44,11 +44,12 @@ export const INITIAL_TERRAIN_BOXES: TerrainBox[] = [
 
 export const getUpcomingTuesdays = (): string[] => {
   const dates: string[] = [];
-  let d = new Date();
+  // Gross but ensures we get the correct local date regardless of timezone. Always use UTC+
+  let local = new Date();
+  let d = new Date(Date.UTC(local.getFullYear(), local.getMonth(), local.getDate()));
   while (d.getDay() !== 2) {
     d.setDate(d.getDate() + 1);
-  }
-  
+  }  
   for (let i = 0; i < 8; i++) {
     dates.push(d.toISOString().split('T')[0]);
     d.setDate(d.getDate() + 7);

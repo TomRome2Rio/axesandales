@@ -14,8 +14,39 @@ import * as firebaseService from './services/firebaseService';
 import { getSelectableDates, getUpcomingTuesdays } from './constants';
 import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory } from './types';
 
+type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin';
+
+const BASE_PATH = import.meta.env.BASE_URL.replace(/\/$/, ''); // e.g. "/axesandales"
+
+const PATH_TO_PAGE: Record<string, PageKey> = {
+  '': 'about',
+  '/': 'about',
+  '/booking': 'home',
+  '/about': 'about',
+  '/membership': 'membership',
+  '/layout': 'layout',
+  '/stats': 'stats',
+  '/profile': 'profile',
+  '/admin': 'admin',
+};
+
+const PAGE_TO_PATH: Record<PageKey, string> = {
+  home: '/booking',
+  about: '/about',
+  membership: '/membership',
+  layout: '/layout',
+  stats: '/stats',
+  profile: '/profile',
+  admin: '/admin',
+};
+
+const getPageFromUrl = (): PageKey => {
+  const path = window.location.pathname.replace(BASE_PATH, '') || '/';
+  return PATH_TO_PAGE[path] || 'about';
+};
+
 const App: React.FC = () => {
-const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin'>('home');
+const [currentPage, setCurrentPage] = useState<PageKey>(getPageFromUrl);
 const [user, setUser] = useState<User | null>(null);
 const [loading, setLoading] = useState(true);
 
@@ -37,6 +68,21 @@ const [selectedDate, setSelectedDate] = useState(selectableDates[0]?.value || ne
 const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+
+// URL-based routing: push state on page change and listen for back/forward
+const navigateTo = useCallback((page: PageKey) => {
+  setCurrentPage(page);
+  const newPath = BASE_PATH + PAGE_TO_PATH[page];
+  if (window.location.pathname !== newPath) {
+    window.history.pushState(null, '', newPath);
+  }
+}, []);
+
+useEffect(() => {
+  const onPopState = () => setCurrentPage(getPageFromUrl());
+  window.addEventListener('popstate', onPopState);
+  return () => window.removeEventListener('popstate', onPopState);
+}, []);
 
 // Popover state for booked items and terrain preview
 const [popover, setPopover] = useState<{ booking?: Booking; terrainBox?: TerrainBox; type: 'table' | 'terrain'; rect: DOMRect } | null>(null);
@@ -134,7 +180,7 @@ await firebaseService.saveBooking(booking);
 const handleLogout = async () => {
 await firebaseService.logout();
 setUser(null);
-setCurrentPage('home');
+navigateTo('home');
 };
 
 const handleEdit = (booking: Booking) => {
@@ -193,7 +239,7 @@ return (
     <p className="text-neutral-400 text-sm mt-1">Your membership is not yet active. You can browse the dashboard but cannot book tables until your payment has been confirmed.</p>
     <p className="text-neutral-400 text-sm mt-1">
       To pay for your membership, head to the{' '}
-      <button onClick={() => setCurrentPage('membership')} className="text-amber-400 hover:text-amber-300 underline font-medium">Membership &amp; Payment</button>{' '}
+      <button onClick={() => navigateTo('membership')} className="text-amber-400 hover:text-amber-300 underline font-medium">Membership &amp; Payment</button>{' '}
       page for details and to pay. Be sure to include your sign-up email (<span className="text-white font-medium">{user.email}</span>) with your payment.
     </p>
     <p className="text-neutral-400 text-sm mt-1">If you have any questions, please email <a href="mailto:axesandalescommittee@gmail.com" className="text-amber-400 hover:text-amber-300 underline">axesandalescommittee@gmail.com</a>.</p>
@@ -329,7 +375,7 @@ Table Status
 
 return (
 <>
-<Layout user={user} onLogin={() => setIsLoginModalOpen(true)} onLogout={handleLogout} currentPage={currentPage} onNavigate={setCurrentPage}>
+<Layout user={user} onLogin={() => setIsLoginModalOpen(true)} onLogout={handleLogout} currentPage={currentPage} onNavigate={navigateTo}>
 {currentPage === 'home' && renderDashboard()}
 {currentPage === 'about' && <AboutView />}
 {currentPage === 'membership' && <MembershipView />}
