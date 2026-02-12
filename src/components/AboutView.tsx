@@ -30,35 +30,6 @@ export const AboutView: React.FC = () => {
         </p>
       </div>
 
-      {/* Looking for a game? */}
-      <div className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 shadow-xl space-y-4">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <span className="w-2 h-8 bg-amber-600 rounded-full inline-block"></span>
-          Looking for a game?
-        </h2>
-        <p className="text-neutral-300 leading-relaxed">
-          The best way to coordinate a game at the club is through Discord and our Facebook group
-        </p>
-        <p className="text-neutral-300 leading-relaxed">
-          <div class="social-button-container">
-            <a href="https://discord.gg/SKkQYGe" target="_blank" class="social-btn discord-btn">
-              <svg class="social-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.14 96.36">
-                <path fill="#fff" d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.09,105.09,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.11,77.11,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a68.68,68.68,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.89,105.89,0,0,0,126.6,80.22c2.36-24.44-4.27-49.07-18.9-72.15ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,54,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.25,60,73.25,53s5-12.74,11.44-12.74S96.23,46,96.23,53,91.1,65.69,84.69,65.69Z"/>
-              </svg>
-              Join Discord
-            </a>
-          
-            <a href="https://www.facebook.com/groups/axesandales" target="_blank" class="social-btn facebook-btn">
-              <svg class="social-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                <path fill="#fff" d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-              </svg>
-              Join Facebook Group
-            </a>
-          </div>
-          So whether you’re here for a narrative campaign or a casual board game, Axes & Ales is a welcoming space to unwind, grab a drink, and play.
-        </p>
-      </div>
-
       {/* Location */}
       <div className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 shadow-xl space-y-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
