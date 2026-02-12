@@ -16,23 +16,17 @@ export const AboutView: React.FC = () => {
           About the Club
         </h2>
         <p className="text-neutral-300 leading-relaxed">
-          Axes & Ales Gaming Club is a tabletop gaming club based in Melbourne, Australia. We meet every Tuesday night
-          at <a href="https://www.google.com/maps?q=27+Ballantyne+St,+Thornbury+VIC+3071" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Thornbury Bowls Club</a> and
-          play all sorts of tabletop games including a wonderful variety of miniature wargames, board games, roleplaying games and card games.
+          Axes & Ales Gaming Club is a tabletop club based in Melbourne. We meet every Tuesday night at <a href="https://www.google.com/maps?q=27+Ballantyne+St,+Thornbury+VIC+3071" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Thornbury Bowls Club</a> and
+          play all types of tabletop games from miniature wargames to board games to roleplaying games plus much more.
         </p>
         <p className="text-neutral-300 leading-relaxed">
-          The purpose of the association is to advance the well-being of members through the provision of a safe, friendly and inclusive
-          environment where members are able to gather and participate in gaming and hobby related activities.
+          We are a social club first. Our main goal is to provide a safe, friendly and inclusive environment. We're all about rolling dice, telling stories, and enjoying the hobby that we all love. 
         </p>
         <p className="text-neutral-300 leading-relaxed">
-          Originally born as a tabletop wargaming club and founded by Viv Chandra, the majority of the terrain available at the club
-          has come from the <a href="http://www.knightsofdice.com/" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Knights of Dice</a> studio.
-          All the club's tables are organised into themed terrain sets, which makes it very easy to set up a table and to make things
-          much easier to pack away and store.
+          The club has a massive collection of terrain organized into themed sets. It's never been so easy to set up a table and even easier to pack away and store.
         </p>
         <p className="text-neutral-300 leading-relaxed">
-          Whilst the club started as a wargaming club, we now have people regularly playing all sorts of games and it's wonderful to
-          see such diversity in the games that are played, ranging across all genres and styles!
+          So whether you’re here for a narrative campaign or a casual board game, Axes & Ales is a welcoming space to unwind, grab a drink, and play.
         </p>
       </div>
 
@@ -127,7 +121,7 @@ export const AboutView: React.FC = () => {
           Need to reach the committee? Jump on{' '}
           <a href="https://discord.gg/SKkQYGe" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Discord</a>,
           message us on{' '}
-          <a href="https://www.facebook.com/axesandales" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Facebook</a>,
+          <a href="https://www.facebook.com/groups/axesandales" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Facebook</a>,
           or email{' '}
           <a href="mailto:axesandalescommittee@gmail.com" className="text-amber-400 hover:text-amber-300 underline">axesandalescommittee@gmail.com</a>.
         </p>
