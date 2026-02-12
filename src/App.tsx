@@ -226,12 +226,40 @@ setUsers(await firebaseService.getAllUsers());
 }
 }
 
-const bookingsForSelectedDate = allBookings.filter(b => b.date === selectedDate);
+const bookingsForSelectedDate = [
+  ...allBookings.filter(b => b.date === selectedDate),
+  // Permanent "Painting Table" reservation for Large Table 13
+  {
+    id: 'permanent-painting-table',
+    date: selectedDate,
+    tableId: 'L13',
+    terrainBoxId: null,
+    memberName: 'Painting Table',
+    memberId: 'system-painting-table',
+    gameSystem: 'Painting / Hobby',
+    playerCount: 0,
+    timestamp: 0,
+  },
+];
 const isDateCancelled = cancelledDates.includes(selectedDate);
 
 const bookableDates = [ ...new Set([...getUpcomingTuesdays(), ...specialEventDates]) ]
 .filter(d => !cancelledDates.includes(d) && d >= new Date().toISOString().split('T')[0])
 .sort();
+
+// Inject permanent painting table booking for every bookable date
+const paintingTableBookings: Booking[] = bookableDates.map(d => ({
+  id: `permanent-painting-table-${d}`,
+  date: d,
+  tableId: 'L13',
+  terrainBoxId: null,
+  memberName: 'Painting Table',
+  memberId: 'system-painting-table',
+  gameSystem: 'Painting / Hobby',
+  playerCount: 0,
+  timestamp: 0,
+}));
+const allBookingsWithPainting = [...allBookings, ...paintingTableBookings];
 
 if (loading) {
 return (
@@ -425,7 +453,7 @@ terrainBoxes={terrainBoxes}
 cancelledDates={cancelledDates}
 bookableDates={bookableDates}
 initialDate={selectedDate}
-allBookings={allBookings}
+allBookings={allBookingsWithPainting}
 />
 )}
 <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
