@@ -108,7 +108,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-2 md:p-4 overflow-y-auto">
-      <div className="bg-neutral-800 rounded-xl shadow-2xl max-w-5xl w-full border border-neutral-700 overflow-hidden flex flex-col max-h-[calc(100vh-1rem)] md:max-h-[calc(100vh-2rem)] mx-auto mt-2 md:mt-8">
+      <div className="bg-neutral-800 rounded-xl shadow-2xl max-w-5xl xl:max-w-7xl w-full border border-neutral-700 overflow-hidden flex flex-col max-h-[calc(100vh-1rem)] md:max-h-[calc(100vh-2rem)] mx-auto mt-2 md:mt-8 xl:mt-12">
         <div className="p-6 border-b border-neutral-700 flex justify-between items-center bg-neutral-800 shrink-0">
             <h2 className="text-xl font-bold text-white">{editingBooking ? 'Edit Booking' : 'New Reservation'}</h2>
             <button onClick={onClose} className="text-neutral-400 hover:text-white"><svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
@@ -146,7 +146,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                                     <span className="inline-block w-2 h-2 rounded-full bg-red-900/50 ml-3 mr-1"></span>Taken
                                 </div>
                              </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2 max-h-60 overflow-y-auto pr-1">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 xl:gap-3 max-h-60 xl:max-h-72 overflow-y-auto pr-1">
                                 {tables.map(table => {
                                     const takenBy = unavailableTables.get(table.id);
                                     const isTaken = !!takenBy;
@@ -177,14 +177,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                             {['All', ...Object.values(TerrainCategory)].map(cat => ( <button key={cat} onClick={() => setActiveCategory(cat)} className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${activeCategory === cat ? 'bg-amber-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-700 border border-neutral-700'}`}>{cat}</button>))}
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-80 overflow-y-auto pr-2">
-                        {activeCategory === 'All' && (<button onClick={() => setSelectedTerrainId('')} className={`relative rounded-lg border-2 overflow-hidden h-36 flex flex-col items-center justify-center transition-all group ${selectedTerrainId === '' ? 'border-amber-500 bg-neutral-700 shadow-lg shadow-amber-900/20' : 'border-neutral-700 bg-neutral-800 hover:bg-neutral-700'}`}><span className="text-2xl mb-2 opacity-70 group-hover:opacity-100 transition-opacity">🚫</span><span className={`text-xs font-bold ${selectedTerrainId === '' ? 'text-amber-500' : 'text-neutral-400'}`}>No Box Needed</span></button>)}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 max-h-80 xl:max-h-[28rem] overflow-y-auto pr-2">
+                        {activeCategory === 'All' && (<button onClick={() => setSelectedTerrainId('')} className={`relative rounded-lg border-2 overflow-hidden h-36 xl:h-44 flex flex-col items-center justify-center transition-all group ${selectedTerrainId === '' ? 'border-amber-500 bg-neutral-700 shadow-lg shadow-amber-900/20' : 'border-neutral-700 bg-neutral-800 hover:bg-neutral-700'}`}><span className="text-2xl mb-2 opacity-70 group-hover:opacity-100 transition-opacity">🚫</span><span className={`text-xs font-bold ${selectedTerrainId === '' ? 'text-amber-500' : 'text-neutral-400'}`}>No Box Needed</span></button>)}
                         {filteredTerrain.map(box => {
                              const takenBy = unavailableTerrain.get(box.id);
                              const isTaken = !!takenBy;
                              const isSelected = selectedTerrainId === box.id;
                              return (
-                                <button key={box.id} disabled={isTaken} onClick={() => setSelectedTerrainId(box.id)} className={`relative rounded-lg border-2 overflow-hidden h-36 text-left transition-all group ${isSelected ? 'border-amber-500 ring-2 ring-amber-500/50 transform scale-[1.02] z-10' : 'border-neutral-700 hover:border-neutral-500'} ${isTaken ? 'opacity-75 cursor-not-allowed' : ''}`}>
+                                <button key={box.id} disabled={isTaken} onClick={() => setSelectedTerrainId(box.id)} className={`relative rounded-lg border-2 overflow-hidden h-36 xl:h-44 text-left transition-all group ${isSelected ? 'border-amber-500 ring-2 ring-amber-500/50 transform scale-[1.02] z-10' : 'border-neutral-700 hover:border-neutral-500'} ${isTaken ? 'opacity-75 cursor-not-allowed' : ''}`}>
                                     <img src={box.imageUrl} alt={box.name} className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isTaken ? 'grayscale' : ''}`} />
                                     <div className={`absolute inset-0 bg-gradient-to-t ${isSelected ? 'from-amber-900/90' : 'from-black/90'} via-black/10 to-transparent`} />
                                     <div className="absolute bottom-0 left-0 p-3 w-full">
