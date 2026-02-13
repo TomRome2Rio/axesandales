@@ -29,7 +29,40 @@ export const AboutView: React.FC = () => {
           So whether you’re here for a narrative campaign or a casual board game, Axes & Ales is a welcoming space to unwind, grab a drink, and play.
         </p>
       </div>
-
+      {/* Co-ordinate a Game */}
+      <div className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 shadow-xl space-y-4">
+        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <span className="w-2 h-8 bg-amber-600 rounded-full inline-block"></span>
+          Want to Co-ordinate a Game?
+        </h2>
+        <p className="text-neutral-300 leading-relaxed">
+          Discord is our primary platform for organising games — post what you want to play, find opponents, and lock in your Tuesday night plans. You can also arrange games through our Facebook group if that's more your style.
+        </p>
+        <div className="flex flex-wrap gap-3 mt-2">
+          <a
+            href="https://discord.gg/JmjYSpJ36M"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium px-5 py-2.5 rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z" />
+            </svg>
+            Join our Discord
+          </a>
+          <a
+            href="https://www.facebook.com/groups/591553861000353"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-[#1877F2] hover:bg-[#1464CC] text-white font-medium px-5 py-2.5 rounded-lg transition-colors"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+            </svg>
+            Facebook Group
+          </a>
+        </div>
+      </div>
       {/* Location */}
       <div className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 shadow-xl space-y-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
