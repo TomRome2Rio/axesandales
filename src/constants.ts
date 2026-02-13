@@ -15,7 +15,7 @@ export const INITIAL_TABLES: Table[] = [
   }))
 ];
 
-const BASE_IMG = '/axesandales/images/terrain';
+const BASE_IMG = '/images/terrain';
 
 export const INITIAL_TERRAIN_BOXES: TerrainBox[] = [
   { id: 'SCIFI-1', category: TerrainCategory.SCIFI, name: 'Sci-Fi Box 1', imageUrl: `${BASE_IMG}/SciFi1.jpg` },

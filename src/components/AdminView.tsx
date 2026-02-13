@@ -14,6 +14,7 @@ interface AdminViewProps {
   onCancelledDatesChange: (dates: string[]) => void;
   onSpecialEventDatesChange: (dates: string[]) => void;
   currentUser: User;
+  gameSystems: string[];
 }
 
 const defaultTable: Omit<Table, 'id'> = { name: '', size: TableSize.LARGE };
@@ -29,7 +30,7 @@ const DragHandle: React.FC = () => (
 export const AdminView: React.FC<AdminViewProps> = ({ 
     tables, terrainBoxes, users, cancelledDates, specialEventDates,
     onTablesChange, onTerrainChange, onUsersChange, onCancelledDatesChange, onSpecialEventDatesChange, 
-    currentUser 
+    currentUser, gameSystems 
 }) => {
   const [editingTable, setEditingTable] = useState<Table | Partial<Table> | null>(null);
   const [editingTerrain, setEditingTerrain] = useState<TerrainBox | Partial<TerrainBox> | null>(null);
@@ -38,6 +39,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [dateToCancel, setDateToCancel] = useState<string>(new Date().toISOString().split('T')[0]);
   const [specialDateToAdd, setSpecialDateToAdd] = useState<string>(new Date().toISOString().split('T')[0]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [renamingGame, setRenamingGame] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [gameRenameLoading, setGameRenameLoading] = useState(false);
 
   const handleDragStart = (e: React.DragEvent, id: string, type: 'table' | 'terrain') => {
     e.dataTransfer.setData(type, id);
@@ -190,6 +194,32 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const handleRemoveSpecialDate = (date: string) => {
     onSpecialEventDatesChange(specialEventDates.filter(d => d !== date));
+  };
+
+  const handleRenameGame = async (oldName: string) => {
+    const newName = renameValue.trim();
+    if (!newName || newName === oldName) return;
+    setGameRenameLoading(true);
+    try {
+      await firebaseService.renameGameSystem(oldName, newName);
+      setRenamingGame(null);
+    } catch (e) {
+      alert('Error renaming game system. Check console.');
+      console.error(e);
+    } finally {
+      setGameRenameLoading(false);
+    }
+  };
+
+  const handleDeleteGame = async (name: string) => {
+    if (confirm(`Delete "${name}" from the game systems list? This will NOT remove it from existing bookings.`)) {
+      try {
+        await firebaseService.deleteGameSystem(name);
+      } catch (e) {
+        alert('Error deleting game system. Check console.');
+        console.error(e);
+      }
+    }
   };
 
   // Render Helpers
@@ -372,6 +402,65 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
             ))}
         </div>
+      </div>
+      {/* Game Systems */}
+      <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
+        <h2 className="text-xl font-bold mb-4">Manage Game Systems ({gameSystems.length})</h2>
+        <p className="text-sm text-neutral-400 mb-4">Rename game systems to normalize data across all bookings. Renaming will update all existing bookings that use the old name.</p>
+        {gameSystems.length === 0 ? (
+          <div className="text-center py-8 text-neutral-500">No game systems yet. They are created automatically when members make bookings.</div>
+        ) : (
+          <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+            {gameSystems.map(name => (
+              <div key={name} className="flex items-center justify-between bg-neutral-800 p-3 rounded-lg border border-neutral-700">
+                {renamingGame === name ? (
+                  <div className="flex items-center gap-2 flex-grow mr-2">
+                    <input
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      className="flex-grow bg-neutral-900 border border-neutral-600 rounded px-3 py-1.5 text-white text-sm focus:ring-1 focus:ring-amber-500 focus:outline-none"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleRenameGame(name);
+                        } else if (e.key === 'Escape') {
+                          setRenamingGame(null);
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => handleRenameGame(name)}
+                      disabled={gameRenameLoading || !renameValue.trim() || renameValue.trim() === name}
+                      className="text-xs bg-amber-600 hover:bg-amber-700 disabled:bg-neutral-700 disabled:text-neutral-500 text-white px-3 py-1.5 rounded font-medium transition-colors"
+                    >
+                      {gameRenameLoading ? 'Saving...' : 'Save'}
+                    </button>
+                    <button onClick={() => setRenamingGame(null)} className="text-xs bg-neutral-700 text-white px-3 py-1.5 rounded font-medium">Cancel</button>
+                  </div>
+                ) : (
+                  <>
+                    <span className="font-medium text-white">{name}</span>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => { setRenamingGame(name); setRenameValue(name); }}
+                        className="text-xs text-neutral-400 hover:text-white transition-colors"
+                      >
+                        Rename
+                      </button>
+                      <button
+                        onClick={() => handleDeleteGame(name)}
+                        className="text-xs text-red-500 hover:text-red-400 transition-colors"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

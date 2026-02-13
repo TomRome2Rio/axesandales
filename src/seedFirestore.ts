@@ -72,6 +72,40 @@ async function seed() {
     console.log('\nSchedule config already exists, skipping.');
   }
 
+  // Seed game systems
+  const INITIAL_GAME_SYSTEMS = [
+    'Warhammer 40,000',
+    'Age of Sigmar',
+    'Blood Bowl',
+    'The Old World',
+    'Heresy',
+    'Kill Team',
+    'Necromunda',
+    'Middle Earth',
+    'Warcry',
+    'Malifaux',
+    'BattleTech',
+    'Infinity',
+    'Zeo Genesis',
+    'A Song of Ice and Fire',
+    'OPR Sci Fi',
+    'OPR Fantasy',
+    'Untitled Pirate Game',
+    'Frostgrave',
+    'Stargrave',
+    'Silver Bayonet',
+    'Bolt Action',
+    'Lion Rampant',
+    'Pillage',
+  ];
+
+  console.log(`\nWriting ${INITIAL_GAME_SYSTEMS.length} game systems...`);
+  for (const name of INITIAL_GAME_SYSTEMS) {
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    await setDoc(doc(db, 'gameSystems', id), { name });
+    console.log(`  ✓ ${id} - ${name}`);
+  }
+
   console.log('\n✅ Firestore seeded successfully!');
   process.exit(0);
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Booking, TerrainCategory, User, Table, TerrainBox } from '../types';
+import { GameSystemAutocomplete } from './GameSystemAutocomplete';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -13,11 +14,14 @@ interface BookingModalProps {
   bookableDates: string[];
   initialDate: string;
   allBookings: Booking[];
+  gameSystems: string[];
+  onNewGameSystem: (name: string) => void;
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({ 
     isOpen, onClose, onSave, user, editingBooking, tables, 
-    terrainBoxes, cancelledDates, bookableDates, initialDate, allBookings 
+    terrainBoxes, cancelledDates, bookableDates, initialDate, allBookings,
+    gameSystems, onNewGameSystem 
 }) => {
   const [date, setDate] = useState(editingBooking?.date || initialDate || bookableDates[0]);
   const [selectedTableId, setSelectedTableId] = useState<string>('');
@@ -128,7 +132,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                                 </div>
                                 <div>
                                     <label className="block text-xs text-neutral-400 mb-1">Game System</label>
-                                    <input type="text" placeholder="e.g. Warhammer 40k" value={gameSystem} onChange={(e) => setGameSystem(e.target.value)} className="w-full bg-neutral-800 border border-neutral-600 rounded px-3 py-2 text-white mb-3 focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm" />
+                                    <div className="mb-3">
+                                      <GameSystemAutocomplete
+                                        value={gameSystem}
+                                        onChange={setGameSystem}
+                                        gameSystems={gameSystems}
+                                        onNewSystem={(name) => { setGameSystem(name); onNewGameSystem(name); }}
+                                      />
+                                    </div>
                                     <div className="flex items-center gap-3">
                                         <span className="text-xs text-neutral-400">Players:</span>
                                         <input type="number" min="1" max="10" value={playerCount} onChange={(e) => setPlayerCount(parseInt(e.target.value))} className="w-20 bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm" />

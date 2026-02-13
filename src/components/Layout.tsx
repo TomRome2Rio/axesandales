@@ -21,6 +21,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onLogout,
   children,
 }) => {
+  const isDev = import.meta.env.DEV;
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Close the menu on route change / resize to desktop
@@ -69,9 +70,9 @@ export const Layout: React.FC<LayoutProps> = ({
             <NavLink to="about">About</NavLink>
             <NavLink to="membership">Membership</NavLink>
             <NavLink to="layout">Club Layout</NavLink>
-            {user?.isAdmin && <NavLink to="stats">Stats</NavLink>}
+            {(user?.isAdmin || isDev) && <NavLink to="stats">Stats</NavLink>}
             {user && <NavLink to="profile">Profile</NavLink>}
-            {user?.isAdmin && <NavLink to="admin">Admin</NavLink>}
+            {(user?.isAdmin || isDev) && <NavLink to="admin">Admin</NavLink>}
           </nav>
 
           {/* Auth / CTA (desktop) */}
@@ -136,9 +137,9 @@ export const Layout: React.FC<LayoutProps> = ({
             <NavLink to="about">About</NavLink>
             <NavLink to="membership">Membership</NavLink>
             <NavLink to="layout">Club Layout</NavLink>
-            {user?.isAdmin && <NavLink to="stats">Stats</NavLink>}
+            {(user?.isAdmin || isDev) && <NavLink to="stats">Stats</NavLink>}
             {user && <NavLink to="profile">Profile</NavLink>}
-            {user?.isAdmin && <NavLink to="admin">Admin</NavLink>}
+            {(user?.isAdmin || isDev) && <NavLink to="admin">Admin</NavLink>}
 
             <div className="pt-2 border-t border-neutral-800 mt-2">
               {!user ? (

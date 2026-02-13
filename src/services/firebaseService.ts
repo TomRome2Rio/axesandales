@@ -17,7 +17,8 @@ import {
     deleteDoc,
     onSnapshot,
     query,
-    Unsubscribe
+    Unsubscribe,
+    writeBatch
 } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import { User, Booking, Table, TerrainBox } from '../types';
@@ -278,4 +279,55 @@ export const saveSpecialEventDatesToDb = async (dates: string[]): Promise<void> 
     } else {
         await setDoc(docRef, { cancelledDates: [], specialEventDates: dates });
     }
+};
+
+// =====================================================
+// GAME SYSTEMS
+// =====================================================
+
+export const subscribeGameSystems = (callback: (gameSystems: string[]) => void): Unsubscribe => {
+    const q = query(collection(db, 'gameSystems'));
+    return onSnapshot(q, (snapshot) => {
+        const names = snapshot.docs.map(d => d.data().name as string).filter(Boolean);
+        names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        callback(names);
+    }, (error) => {
+        console.error('Error subscribing to game systems:', error);
+        callback([]);
+    });
+};
+
+export const addGameSystem = async (name: string): Promise<void> => {
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const docRef = doc(db, 'gameSystems', id);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) {
+        await setDoc(docRef, { name });
+    }
+};
+
+export const renameGameSystem = async (oldName: string, newName: string): Promise<void> => {
+    const batch = writeBatch(db);
+
+    // Find and delete the old game system doc, create the new one
+    const oldId = oldName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const newId = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+    batch.delete(doc(db, 'gameSystems', oldId));
+    batch.set(doc(db, 'gameSystems', newId), { name: newName });
+
+    // Update all bookings that reference the old game system
+    const bookingsSnap = await getDocs(collection(db, 'bookings'));
+    bookingsSnap.docs.forEach(d => {
+        if (d.data().gameSystem === oldName) {
+            batch.update(doc(db, 'bookings', d.id), { gameSystem: newName });
+        }
+    });
+
+    await batch.commit();
+};
+
+export const deleteGameSystem = async (name: string): Promise<void> => {
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    await deleteDoc(doc(db, 'gameSystems', id));
 };
