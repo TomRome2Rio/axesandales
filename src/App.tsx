@@ -60,6 +60,7 @@ const [users, setUsers] = useState<User[]>([]);
 
 const [cancelledDates, setCancelledDates] = useState<string[]>([]);
 const [specialEventDates, setSpecialEventDates] = useState<string[]>([]);
+const [gameSystems, setGameSystems] = useState<string[]>([]);
 
 const selectableDates = getSelectableDates(specialEventDates, allBookings, cancelledDates);
 const [selectedDate, setSelectedDate] = useState(selectableDates[0]?.value || new Date().toISOString().split('T')[0]);
@@ -136,6 +137,7 @@ const unsubSchedule = firebaseService.subscribeScheduleConfig((cancelled, specia
     setCancelledDates(cancelled);
     setSpecialEventDates(special);
 });
+const unsubGameSystems = firebaseService.subscribeGameSystems(setGameSystems);
 
 // Listen for Firebase Auth changes
 const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -179,6 +181,7 @@ return () => {
     unsubTables();
     unsubTerrain();
     unsubSchedule();
+    unsubGameSystems();
 };
 }, []);
 
@@ -190,6 +193,10 @@ setSelectedDate(selectableDates[0].value);
 
 const handleBookingSave = async (booking: Booking) => {
 await firebaseService.saveBooking(booking);
+// Auto-add game system to the collection if it's new
+if (booking.gameSystem && !gameSystems.some(g => g.toLowerCase() === booking.gameSystem.toLowerCase())) {
+  await firebaseService.addGameSystem(booking.gameSystem);
+}
 };
 
 const handleLogout = async () => {
@@ -438,6 +445,7 @@ onUsersChange={refreshUsers}
 onCancelledDatesChange={handleCancelledDatesUpdate}
 onSpecialEventDatesChange={handleSpecialEventDatesUpdate}
 currentUser={user}
+gameSystems={gameSystems}
 />
 )}
 </Layout>
@@ -454,6 +462,8 @@ cancelledDates={cancelledDates}
 bookableDates={bookableDates}
 initialDate={selectedDate}
 allBookings={allBookingsWithPainting}
+gameSystems={gameSystems}
+onNewGameSystem={(name) => firebaseService.addGameSystem(name)}
 />
 )}
 <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
