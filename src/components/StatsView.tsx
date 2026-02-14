@@ -27,7 +27,7 @@ export const StatsView: React.FC = () => {
   const COLORS = ['#d97706', '#b45309', '#92400e', '#78350f', '#451a03', '#57534e'];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6">
         <div className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 shadow-xl">
             <h2 className="text-2xl font-bold text-amber-500 mb-1">Club Intelligence</h2>
             <p className="text-neutral-400 text-sm mb-6">Historical data analysis of game systems played.</p>

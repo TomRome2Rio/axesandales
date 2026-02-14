@@ -55,7 +55,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNameChange }) 
   };
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-2xl mx-auto">
       <div className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 shadow-xl">
         <h2 className="text-2xl font-bold text-amber-500 mb-4">My Profile</h2>
         <div className="space-y-3 bg-neutral-900/50 p-4 rounded-lg border border-neutral-700">
