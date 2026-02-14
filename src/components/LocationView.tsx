@@ -2,7 +2,7 @@ import React from 'react';
 
 export const LocationView: React.FC = () => {
   return (
-    <div className="space-y-8 animate-fade-in max-w-3xl mx-auto">
+    <div className="space-y-8 max-w-3xl mx-auto">
       {/* Location */}
       <div className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 shadow-xl space-y-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">

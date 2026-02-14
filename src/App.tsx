@@ -330,7 +330,7 @@ return (
 };
 
 const renderDashboard = () => (
-<div className="space-y-8 animate-fade-in">
+<div className="space-y-8">
 {renderPendingBanner()}
 <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-neutral-800 p-4 rounded-xl border border-neutral-700 shadow-lg">
 <div className="flex items-center gap-3 w-full md:w-auto">
@@ -503,7 +503,7 @@ gameSystems={gameSystems}
 {popover && (
   <div
     ref={popoverRef}
-    className="fixed z-50 bg-neutral-800 border border-neutral-600 rounded-xl shadow-2xl shadow-black/50 min-w-[260px] max-w-[340px] animate-fade-in overflow-hidden"
+    className="fixed z-50 bg-neutral-800 border border-neutral-600 rounded-xl shadow-2xl shadow-black/50 min-w-[260px] max-w-[340px] overflow-hidden"
     style={popoverStyle}
     onMouseEnter={keepPopover}
     onMouseLeave={hidePopover}
@@ -567,7 +567,7 @@ gameSystems={gameSystems}
 {toast && (
   <div
     key={toast.key}
-    className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-neutral-800 border border-neutral-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in"
+    className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-neutral-800 border border-neutral-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3"
   >
     <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

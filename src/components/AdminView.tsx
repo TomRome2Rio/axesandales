@@ -256,7 +256,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
 
   return (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8">
       <h1 className="text-3xl font-bold text-amber-500">Admin Panel</h1>
       {/* Schedule */}
       <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">

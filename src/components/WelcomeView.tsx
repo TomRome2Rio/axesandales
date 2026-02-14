@@ -7,7 +7,7 @@ interface WelcomeViewProps {
 
 export const WelcomeView: React.FC<WelcomeViewProps> = ({ onNavigate }) => {
   return (
-    <div className="space-y-8 animate-fade-in max-w-3xl mx-auto">
+    <div className="space-y-8 max-w-3xl mx-auto">
       {/* Hero */}
       <div className="bg-neutral-800 rounded-xl p-8 border border-neutral-700 shadow-xl text-center space-y-3">
         <div className="mx-auto w-16 h-16 rounded-full bg-green-900/50 border-2 border-green-600 flex items-center justify-center">

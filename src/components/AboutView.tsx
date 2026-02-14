@@ -3,7 +3,7 @@ import { DISCORD_INVITE_URL } from '../constants';
 
 export const AboutView: React.FC = () => {
   return (
-    <div className="space-y-8 animate-fade-in max-w-3xl mx-auto">
+    <div className="space-y-8 max-w-3xl mx-auto">
       {/* Hero */}
       <div className="bg-neutral-800 rounded-xl p-8 border border-neutral-700 shadow-xl text-center">
         <h1 className="text-3xl font-bold text-amber-500 mb-2">Axes & Ales Gaming Club</h1>
