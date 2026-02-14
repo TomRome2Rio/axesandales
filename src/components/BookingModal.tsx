@@ -91,7 +91,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         memberId: user.id,
         gameSystem,
         playerCount,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        status: editingBooking ? editingBooking.status : 'active',
     };
     onSave(newBooking);
     onClose();

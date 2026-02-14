@@ -1,7 +1,7 @@
 /**
  * One-off script to seed Firestore with initial tables and terrain boxes.
  * 
- * Run with: npx tsx src/seedFirestore.ts <email> <password>
+ * Run with: npx tsx src/scripts/seedFirestore.ts <email> <password>
  * 
  * This will sign in as the given user, then write all tables and terrain boxes
  * from constants.ts into Firestore. Existing docs with the same IDs will be overwritten.
@@ -14,7 +14,7 @@ config({ path: '.env' });
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
 import { getFirestore, doc, setDoc, collection, getDocs } from 'firebase/firestore';
-import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from './constants';
+import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
 
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY!,
@@ -35,7 +35,7 @@ async function seed() {
   const password = process.argv[3];
 
   if (!email || !password) {
-    console.error('Usage: npx tsx src/seedFirestore.ts <email> <password>');
+    console.error('Usage: npx tsx src/scripts/seedFirestore.ts <email> <password>');
     process.exit(1);
   }
 

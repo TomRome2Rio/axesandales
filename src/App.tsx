@@ -67,6 +67,7 @@ const [loading, setLoading] = useState(true);
 
 // App-level state for local data
 const [allBookings, setAllBookings] = useState<Booking[]>([]);
+const activeBookings = allBookings.filter(b => b.status !== 'cancelled');
 const [tables, setTables] = useState<Table[]>([]);
 const [terrainBoxes, setTerrainBoxes] = useState<TerrainBox[]>([]);
 
@@ -77,13 +78,22 @@ const [cancelledDates, setCancelledDates] = useState<string[]>([]);
 const [specialEventDates, setSpecialEventDates] = useState<string[]>([]);
 const [gameSystems, setGameSystems] = useState<string[]>([]);
 
-const selectableDates = getSelectableDates(specialEventDates, allBookings, cancelledDates);
+const selectableDates = getSelectableDates(specialEventDates, activeBookings, cancelledDates);
 const [selectedDate, setSelectedDate] = useState(selectableDates[0]?.value || new Date().toISOString().split('T')[0]);
 
 // Modal State
 const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
+
+// Toast state
+const [toast, setToast] = useState<{ message: string; key: number } | null>(null);
+const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+const showToast = useCallback((message: string) => {
+  clearTimeout(toastTimer.current);
+  setToast({ message, key: Date.now() });
+  toastTimer.current = setTimeout(() => setToast(null), 3000);
+}, []);
 
 // URL-based routing: push state on page change and listen for back/forward
 const navigateTo = useCallback((page: PageKey) => {
@@ -207,11 +217,14 @@ setSelectedDate(selectableDates[0].value);
 }, [selectableDates, selectedDate]);
 
 const handleBookingSave = async (booking: Booking) => {
-await firebaseService.saveBooking(booking);
+const isNew = !editingBooking;
+const bookingWithStatus: Booking = { ...booking, status: booking.status || 'active' };
+await firebaseService.saveBooking(bookingWithStatus);
 // Auto-add game system to the collection if it's new
 if (booking.gameSystem && !gameSystems.some(g => g.toLowerCase() === booking.gameSystem.toLowerCase())) {
   await firebaseService.addGameSystem(booking.gameSystem);
 }
+showToast(isNew ? 'Booking confirmed!' : 'Booking updated!');
 };
 
 const handleLogout = async () => {
@@ -227,7 +240,8 @@ setIsBookingModalOpen(true);
 
 const handleDelete = async (id: string) => {
 if (confirm('Are you sure you want to cancel this booking?')) {
-await firebaseService.deleteBookingFromDb(id);
+await firebaseService.cancelBooking(id, user?.id || 'unknown');
+showToast('Booking cancelled.');
 }
 };
 
@@ -249,7 +263,7 @@ setUsers(await firebaseService.getAllUsers());
 }
 
 const bookingsForSelectedDate = [
-  ...allBookings.filter(b => b.date === selectedDate),
+  ...activeBookings.filter(b => b.date === selectedDate),
   // Permanent "Painting Table" reservation for Large Table 13
   {
     id: 'permanent-painting-table',
@@ -261,6 +275,7 @@ const bookingsForSelectedDate = [
     gameSystem: 'Painting / Hobby',
     playerCount: 0,
     timestamp: 0,
+    status: 'active' as const,
   },
 ];
 const isDateCancelled = cancelledDates.includes(selectedDate);
@@ -280,8 +295,9 @@ const paintingTableBookings: Booking[] = bookableDates.map(d => ({
   gameSystem: 'Painting / Hobby',
   playerCount: 0,
   timestamp: 0,
+  status: 'active' as const,
 }));
-const allBookingsWithPainting = [...allBookings, ...paintingTableBookings];
+const allBookingsWithPainting = [...activeBookings, ...paintingTableBookings];
 
 if (loading) {
 return (
@@ -454,6 +470,7 @@ return (
 tables={tables}
 terrainBoxes={terrainBoxes}
 users={users}
+allBookings={allBookings}
 cancelledDates={cancelledDates}
 specialEventDates={specialEventDates}
 onTablesChange={handleTablesUpdate}
@@ -543,6 +560,19 @@ gameSystems={gameSystems}
         <button onClick={() => { const id = popover.booking!.id; setPopover(null); handleDelete(id); }} className="flex-1 text-xs bg-red-900/30 hover:bg-red-900/50 py-1.5 rounded text-red-300 transition-colors">Cancel</button>
       </div>
     )}
+  </div>
+)}
+
+{/* Toast notification */}
+{toast && (
+  <div
+    key={toast.key}
+    className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-neutral-800 border border-neutral-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in"
+  >
+    <svg className="w-5 h-5 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+    </svg>
+    <span className="text-sm font-medium">{toast.message}</span>
   </div>
 )}
 </>

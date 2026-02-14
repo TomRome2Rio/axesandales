@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Table, TerrainBox, TableSize, TerrainCategory, User } from '../types';
+import { Table, TerrainBox, TableSize, TerrainCategory, User, Booking } from '../types';
 import * as firebaseService from '../services/firebaseService';
 
 interface AdminViewProps {
   tables: Table[];
   terrainBoxes: TerrainBox[];
   users: User[];
+  allBookings: Booking[];
   cancelledDates: string[];
   specialEventDates: string[];
   onTablesChange: (tables: Table[]) => void;
@@ -28,7 +29,7 @@ const DragHandle: React.FC = () => (
 );
 
 export const AdminView: React.FC<AdminViewProps> = ({ 
-    tables, terrainBoxes, users, cancelledDates, specialEventDates,
+    tables, terrainBoxes, users, allBookings, cancelledDates, specialEventDates,
     onTablesChange, onTerrainChange, onUsersChange, onCancelledDatesChange, onSpecialEventDatesChange, 
     currentUser, gameSystems 
 }) => {
@@ -335,6 +336,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                     {role === 'admin' && <span className="text-xs text-amber-400 bg-amber-900/50 px-2 py-0.5 rounded-full border border-amber-800">Admin</span>}
                                 </div>
                                 <span className="text-xs text-neutral-500 truncate block">{u.email}</span>
+                                <div className="flex gap-3 mt-1">
+                                  <span className="text-xs text-neutral-500">Bookings: <span className="text-neutral-300">{allBookings.filter(b => b.memberId === u.id && b.status === 'active').length}</span></span>
+                                  <span className="text-xs text-neutral-500">Cancellations: <span className="text-neutral-300">{allBookings.filter(b => b.memberId === u.id && b.status === 'cancelled' && b.cancelledBy === u.id).length}</span></span>
+                                </div>
                                 {u.membershipPaidDate && (role === 'member' || role === 'admin') && (
                                   <div className="flex gap-3 mt-1">
                                     <span className="text-xs text-neutral-500">Paid: <span className="text-neutral-300">{formatDate(u.membershipPaidDate)}</span></span>
