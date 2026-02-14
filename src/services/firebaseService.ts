@@ -164,8 +164,12 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
     await setDoc(doc(db, 'bookings', booking.id), booking);
 };
 
-export const deleteBookingFromDb = async (id: string): Promise<void> => {
-    await deleteDoc(doc(db, 'bookings', id));
+export const cancelBooking = async (id: string, cancelledByUserId: string): Promise<void> => {
+    await updateDoc(doc(db, 'bookings', id), {
+        status: 'cancelled',
+        cancelledAt: Date.now(),
+        cancelledBy: cancelledByUserId,
+    });
 };
 
 // =====================================================

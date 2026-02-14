@@ -146,7 +146,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <div className="pt-2 border-t border-neutral-800 mt-2">
               {!user ? (
                 <button
-                  onClick={onLogin}
+                  onClick={() => { setMenuOpen(false); onLogin(); }}
                   className="w-full px-3 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-black font-semibold"
                 >
                   Sign in

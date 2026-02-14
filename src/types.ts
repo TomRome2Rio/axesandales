@@ -34,6 +34,9 @@ export interface Booking {
   gameSystem: string;
   playerCount: number;
   timestamp: number;
+  status: 'active' | 'cancelled';
+  cancelledAt?: number; // Timestamp of when the booking was cancelled
+  cancelledBy?: string; // User ID of who cancelled the booking
 }
 
 export interface User {

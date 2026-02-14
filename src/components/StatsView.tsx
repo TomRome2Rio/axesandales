@@ -8,9 +8,10 @@ export const StatsView: React.FC = () => {
 
   useEffect(() => {
     const unsub = subscribeBookings((bookings) => {
-      setTotalGames(bookings.length);
+      const active = bookings.filter(b => b.status !== 'cancelled');
+      setTotalGames(active.length);
       const counts: Record<string, number> = {};
-      bookings.forEach(b => {
+      active.forEach(b => {
         const game = b.gameSystem.trim();
         counts[game] = (counts[game] || 0) + 1;
       });
