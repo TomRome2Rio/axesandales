@@ -1,6 +1,8 @@
 import { Booking } from './types';
 import { Table, TableSize, TerrainBox, TerrainCategory } from './types';
 
+export const DISCORD_INVITE_URL = 'https://discord.gg/gSQgpPVNKy';
+
 // Inventory is now managed in localStorage. These are the default first-time values.
 export const INITIAL_TABLES: Table[] = [
   ...Array.from({ length: 16 }, (_, i) => ({
@@ -28,7 +30,7 @@ export const INITIAL_TERRAIN_BOXES: TerrainBox[] = [
   { id: 'SCIFI-8', category: TerrainCategory.SCIFI, name: 'Sci-Fi Box 8', imageUrl: `${BASE_IMG}/SciFi8.jpg` },
   { id: 'SCIFI-9', category: TerrainCategory.SCIFI, name: 'Sci-Fi Box 9', imageUrl: `${BASE_IMG}/SciFi9.jpg` },
   { id: 'SCIFI-10', category: TerrainCategory.SCIFI, name: 'Sci-Fi Box 10', imageUrl: `${BASE_IMG}/SciFi10.jpg` },
-  { id: 'HIST-1', category: TerrainCategory.HISTORICAL, name: 'Historical Box 1', imageUrl: `${BASE_IMG}/Historical!.jpg` },
+  { id: 'HIST-1', category: TerrainCategory.HISTORICAL, name: 'Historical Box 1', imageUrl: `${BASE_IMG}/Historical1.jpg` },
   { id: 'HIST-2', category: TerrainCategory.HISTORICAL, name: 'Historical Box 2', imageUrl: `${BASE_IMG}/Historical2.jpg` },
   { id: 'HIST-3', category: TerrainCategory.HISTORICAL, name: 'Historical Box 3', imageUrl: `${BASE_IMG}/Historical3.jpg` },
   { id: 'HIST-4', category: TerrainCategory.HISTORICAL, name: 'Historical Box 4', imageUrl: `${BASE_IMG}/Historical4.jpg` },

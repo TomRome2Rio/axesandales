@@ -1,4 +1,5 @@
 import React from 'react';
+import { DISCORD_INVITE_URL } from '../constants';
 
 export const AboutView: React.FC = () => {
   return (
@@ -78,7 +79,7 @@ export const AboutView: React.FC = () => {
         </p>
         <div className="flex flex-wrap gap-3 mt-2">
           <a
-            href="https://discord.gg/JmjYSpJ36M"
+            href={DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium px-5 py-2.5 rounded-lg transition-colors"
@@ -109,7 +110,7 @@ export const AboutView: React.FC = () => {
         </h2>
         <p className="text-neutral-400 text-sm">
           Need to reach the committee? Jump on{' '}
-          <a href="https://discord.gg/SKkQYGe" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Discord</a>,
+          <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Discord</a>,
           message us on{' '}
           <a href="https://www.facebook.com/groups/axesandales" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Facebook</a>,
           or email{' '}

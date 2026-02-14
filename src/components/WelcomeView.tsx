@@ -1,4 +1,5 @@
 import React from 'react';
+import { DISCORD_INVITE_URL } from '../constants';
 
 interface WelcomeViewProps {
   onNavigate: (page: 'membership' | 'home' | 'about') => void;
@@ -92,7 +93,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({ onNavigate }) => {
           If you've already paid for your membership but have only just created an account on this site, don't worry — we just need to link your payment to your new account. This is done manually by the committee and <span className="text-white font-medium">can take a few days</span>.
         </p>
         <p className="text-neutral-300 leading-relaxed">
-          If it's been a while, feel free to nudge us on <a href="https://discord.gg/JmjYSpJ36M" target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Discord</a> or email <a href="mailto:axesandalescommittee@gmail.com" className="text-amber-400 hover:text-amber-300 underline">axesandalescommittee@gmail.com</a>.
+          If it's been a while, feel free to nudge us on <a href={DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer" className="text-amber-400 hover:text-amber-300 underline">Discord</a> or email <a href="mailto:axesandalescommittee@gmail.com" className="text-amber-400 hover:text-amber-300 underline">axesandalescommittee@gmail.com</a>.
         </p>
       </div>
 
@@ -117,7 +118,7 @@ export const WelcomeView: React.FC<WelcomeViewProps> = ({ onNavigate }) => {
             Pay for Membership
           </button>
           <a
-            href="https://discord.gg/JmjYSpJ36M"
+            href={DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-medium py-2.5 px-6 rounded-lg transition-colors"
