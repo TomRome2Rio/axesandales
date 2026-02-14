@@ -9,6 +9,15 @@ export const AboutView: React.FC = () => {
         <p className="text-neutral-400 text-sm">Northern Suburbs Gamers Club Incorporated</p>
       </div>
 
+      {/* Community image */}
+      <div className="rounded-xl overflow-hidden border border-neutral-700 shadow-xl">
+        <img
+          src={`${import.meta.env.BASE_URL}images/aa-community.jpg`}
+          alt="Axes & Ales community"
+          className="w-full h-auto object-cover"
+        />
+      </div>
+
       {/* About */}
       <div className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 shadow-xl space-y-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -29,6 +38,16 @@ export const AboutView: React.FC = () => {
           So whether you’re here for a narrative campaign or practicing for the next tournament, Axes & Ales is a welcoming space to unwind, grab a drink, and play.
         </p>
       </div>
+
+      {/* Terrain image */}
+      <div className="rounded-xl overflow-hidden border border-neutral-700 shadow-xl">
+        <img
+          src={`${import.meta.env.BASE_URL}images/aa-quality-terrain.jpg`}
+          alt="Quality terrain at Axes & Ales"
+          className="w-full h-auto object-cover"
+        />
+      </div>
+
       {/* Our Community */}
       <div className="bg-neutral-800 rounded-xl p-6 border border-neutral-700 shadow-xl space-y-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -117,6 +136,15 @@ export const AboutView: React.FC = () => {
             referrerPolicy="no-referrer-when-downgrade"
             title="Thornbury Bowls Club location"
           ></iframe>
+        </div>
+
+        {/* TBC image */}
+        <div className="rounded-lg overflow-hidden border border-neutral-700 mt-2">
+          <img
+            src={`${import.meta.env.BASE_URL}images/AA-TBC.jpg`}
+            alt="Thornbury Bowls Club"
+            className="w-full h-auto object-cover"
+          />
         </div>
       </div>
 

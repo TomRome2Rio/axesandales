@@ -162,6 +162,15 @@ export const Layout: React.FC<LayoutProps> = ({
         </div>
       </header>
 
+      {/* Header image */}
+      <div className="w-full max-w-6xl mx-auto px-4 pt-4">
+        <img
+          src={`${import.meta.env.BASE_URL}images/aa-header.jpg`}
+          alt="Axes & Ales header"
+          className="w-full h-auto object-cover rounded-xl"
+        />
+      </div>
+
       {/* Page content */}
       <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
     </div>
