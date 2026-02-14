@@ -187,7 +187,7 @@ export const AboutView: React.FC = () => {
             { name: 'Scoob', role: 'General Committee' },
             { name: 'Stew', role: 'General Committee' },
             { name: 'Rob/Fodzilla', role: 'General Committee' },
-            { name: 'Rob Deakin', role: 'General Committee' },
+            { name: 'Rob D', role: 'General Committee' },
             { name: 'Enrique/Soulstress', role: 'General Committee' },
             { name: 'Adam', role: 'General Committee' },
             { name: 'Tom', role: 'IT Guy' },
