@@ -8,13 +8,14 @@ import { ProfileView } from './components/ProfileView';
 import { AboutView } from './components/AboutView';
 import { MembershipView } from './components/MembershipView';
 import { ClubLayoutView } from './components/ClubLayoutView';
+import { WelcomeView } from './components/WelcomeView';
 import { auth } from './firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import * as firebaseService from './services/firebaseService';
 import { getSelectableDates, getUpcomingTuesdays } from './constants';
 import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory } from './types';
 
-type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin';
+type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome';
 
 const DEV_USER: User = {
   id: 'dev-local',
@@ -37,6 +38,7 @@ const PATH_TO_PAGE: Record<string, PageKey> = {
   '/stats': 'stats',
   '/profile': 'profile',
   '/admin': 'admin',
+  '/welcome': 'welcome',
 };
 
 const PAGE_TO_PATH: Record<PageKey, string> = {
@@ -47,6 +49,7 @@ const PAGE_TO_PATH: Record<PageKey, string> = {
   stats: '/stats',
   profile: '/profile',
   admin: '/admin',
+  welcome: '/welcome',
 };
 
 const getPageFromUrl = (): PageKey => {
@@ -437,6 +440,7 @@ return (
 <Layout user={user} onLogin={() => setIsLoginModalOpen(true)} onLogout={handleLogout} currentPage={currentPage} onNavigate={navigateTo}>
 {currentPage === 'home' && renderDashboard()}
 {currentPage === 'about' && <AboutView />}
+{currentPage === 'welcome' && <WelcomeView onNavigate={navigateTo} />}
 {currentPage === 'membership' && <MembershipView />}
 {currentPage === 'layout' && <ClubLayoutView />}
 {currentPage === 'stats' && <StatsView />}
@@ -474,7 +478,7 @@ allBookings={allBookingsWithPainting}
 gameSystems={gameSystems}
 />
 )}
-<LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+<LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} onRegisterSuccess={() => { setIsLoginModalOpen(false); navigateTo('welcome'); }} />
 {popover && (
   <div
     ref={popoverRef}

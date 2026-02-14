@@ -4,11 +4,12 @@ import { login, register, signInWithGoogle, resetPassword } from '../services/fi
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onRegisterSuccess?: () => void;
 }
 
 type AuthTab = 'login' | 'register';
 
-export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
+export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onRegisterSuccess }) => {
   const [tab, setTab] = useState<AuthTab>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,7 +53,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
     if (password !== confirmPassword) { setError('Passwords do not match.'); setLoading(false); return; }
     try {
       await register(email, password, name.trim());
-      setSuccessMessage('Account created! An admin will activate your membership once payment is confirmed.');
+      resetForm();
+      if (onRegisterSuccess) {
+        onRegisterSuccess();
+      } else {
+        setSuccessMessage('Account created! An admin will activate your membership once payment is confirmed.');
+      }
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         setError('An account with this email already exists. Try logging in instead.');
@@ -90,9 +96,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
   const handleGoogleSignIn = async () => {
     setError(''); setLoading(true);
     try {
-      await signInWithGoogle();
+      const { isNewUser } = await signInWithGoogle();
       resetForm();
-      onClose();
+      if (isNewUser && onRegisterSuccess) {
+        onRegisterSuccess();
+      } else {
+        onClose();
+      }
     } catch (err: any) {
       if (err.code === 'auth/popup-closed-by-user') {
         // User closed the popup, not an error

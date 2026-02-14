@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-type NavKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin';
+type NavKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome';
 
 export interface LayoutProps {
   user: { id: string; name: string; isMember: boolean; isAdmin?: boolean } | null;

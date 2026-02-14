@@ -69,18 +69,19 @@ export const register = async (email: string, password: string, name: string): P
 };
 
 // Google sign-in (creates profile if first time)
-export const signInWithGoogle = async (): Promise<User> => {
+export const signInWithGoogle = async (): Promise<{ user: User; isNewUser: boolean }> => {
     const result = await signInWithPopup(auth, googleProvider);
     const { user } = result;
     // Check if profile already exists
     const existing = await getUserProfile(user.uid);
-    if (existing) return existing;
+    if (existing) return { user: existing, isNewUser: false };
     // First-time Google user — create pending profile
-    return createPendingProfile(
+    const newUser = await createPendingProfile(
         user.uid,
         user.email || '',
         user.displayName || user.email || 'New User'
     );
+    return { user: newUser, isNewUser: true };
 };
 
 // Login
