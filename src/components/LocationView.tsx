@@ -57,7 +57,7 @@ export const LocationView: React.FC = () => {
           Getting There
         </h2>
         <p className="text-neutral-300 leading-relaxed">
-          The club meets every Tuesday evening between <span className="text-white font-medium">6:30–11pm</span> at the Thornbury Bowls Club, 27 Ballantyne Street, Thornbury – VIC.
+          The club meets every Tuesday evening between <span className="text-white font-medium">6:00–10:30pm</span> at the Thornbury Bowls Club, 27 Ballantyne Street, Thornbury – VIC.
         </p>
         <div className="bg-neutral-900/50 rounded-lg p-4 border border-neutral-700 space-y-4">
           {/* Parking */}
