@@ -22,6 +22,8 @@ export interface TerrainBox {
   category: TerrainCategory;
   name: string;
   imageUrl: string;
+  uploadedImageUrl?: string;
+  disabled?: boolean;
 }
 
 export interface Booking {

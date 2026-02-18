@@ -510,7 +510,7 @@ gameSystems={gameSystems}
     onMouseLeave={hidePopover}
   >
     {popover.terrainBox && (
-      <img src={popover.terrainBox.imageUrl} alt={popover.terrainBox.name} className="w-full h-48 object-cover" />
+      <img src={popover.terrainBox.uploadedImageUrl || popover.terrainBox.imageUrl} alt={popover.terrainBox.name} className="w-full h-48 object-cover" />
     )}
     <div className="p-4 space-y-2">
       {popover.terrainBox && (

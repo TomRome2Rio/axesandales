@@ -20,7 +20,8 @@ import {
     Unsubscribe,
     writeBatch
 } from 'firebase/firestore';
-import { auth, db } from '../firebaseConfig';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { auth, db, storage } from '../firebaseConfig';
 import { User, Booking, Table, TerrainBox } from '../types';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
 
@@ -260,6 +261,36 @@ export const initTerrainBoxesIfEmpty = async (): Promise<void> => {
     } catch (error) {
         console.error('Error initializing terrain boxes in Firestore:', error);
     }
+};
+
+// Upload a terrain image to Firebase Storage (replaces any existing image for this terrain)
+export const uploadTerrainImage = async (terrainId: string, file: File): Promise<string> => {
+    const storageRef = ref(storage, `terrain-images/${terrainId}`);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+
+    // Update the terrain doc with the uploaded image URL
+    const terrainDoc = doc(db, 'terrainBoxes', terrainId);
+    await updateDoc(terrainDoc, { uploadedImageUrl: downloadUrl });
+
+    return downloadUrl;
+};
+
+// Remove a terrain's uploaded image from Firebase Storage and clear the field
+export const removeTerrainImage = async (terrainId: string): Promise<void> => {
+    try {
+        const storageRef = ref(storage, `terrain-images/${terrainId}`);
+        await deleteObject(storageRef);
+    } catch (error: unknown) {
+        // Ignore if the file doesn't exist in storage
+        if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code !== 'storage/object-not-found') {
+            throw error;
+        }
+    }
+
+    // Clear the uploadedImageUrl field on the terrain doc
+    const terrainDoc = doc(db, 'terrainBoxes', terrainId);
+    await updateDoc(terrainDoc, { uploadedImageUrl: null });
 };
 
 // =====================================================

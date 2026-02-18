@@ -88,8 +88,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         date,
         tableId: selectedTableId,
         terrainBoxId: selectedTerrainId || null,
-        memberName: editingBooking ? editingBooking.memberName : user.name,
-        memberId: editingBooking ? editingBooking.memberId : user.id,
+        memberName: user.name,
+        memberId: user.id,
         gameSystem,
         playerCount,
         timestamp: Date.now(),
@@ -101,9 +101,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
   if (!isOpen) return null;
 
+  const enabledTerrain = terrainBoxes.filter(b => !b.disabled);
   const filteredTerrain = activeCategory === 'All' 
-    ? terrainBoxes
-    : terrainBoxes.filter(b => b.category === activeCategory);
+    ? enabledTerrain
+    : enabledTerrain.filter(b => b.category === activeCategory);
     
   const handleDateChange = (newDate: string) => {
     setDate(newDate);
@@ -196,7 +197,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                              const isSelected = selectedTerrainId === box.id;
                              return (
                                 <button key={box.id} disabled={isTaken} onClick={() => setSelectedTerrainId(box.id)} className={`relative rounded-lg border-2 overflow-hidden h-36 xl:h-44 text-left transition-all group ${isSelected ? 'border-amber-500 ring-2 ring-amber-500/50 transform scale-[1.02] z-10' : 'border-neutral-700 hover:border-neutral-500'} ${isTaken ? 'opacity-75 cursor-not-allowed' : ''}`}>
-                                    <img src={box.imageUrl} alt={box.name} className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isTaken ? 'grayscale' : ''}`} />
+                                    <img src={box.uploadedImageUrl || box.imageUrl} alt={box.name} className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isTaken ? 'grayscale' : ''}`} />
                                     <div className={`absolute inset-0 bg-gradient-to-t ${isSelected ? 'from-amber-900/90' : 'from-black/90'} via-black/10 to-transparent`} />
                                     <div className="absolute bottom-0 left-0 p-3 w-full">
                                         <div className={`font-bold text-xs leading-tight ${isSelected ? 'text-amber-400' : 'text-white'}`}>{box.name}</div>

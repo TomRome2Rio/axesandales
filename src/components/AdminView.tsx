@@ -44,6 +44,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [renamingGame, setRenamingGame] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [gameRenameLoading, setGameRenameLoading] = useState(false);
+  const [terrainImageFile, setTerrainImageFile] = useState<File | null>(null);
+  const [terrainImageUploading, setTerrainImageUploading] = useState(false);
+  const [terrainImageRemoving, setTerrainImageRemoving] = useState<string | null>(null);
 
   const handleDragStart = (e: React.DragEvent, id: string, type: 'table' | 'terrain') => {
     e.dataTransfer.setData(type, id);
@@ -95,19 +98,51 @@ export const AdminView: React.FC<AdminViewProps> = ({
     if(confirm('Delete this table?')) onTablesChange(tables.filter(t => t.id !== id));
   }
 
-  const handleSaveTerrain = () => {
+  const handleSaveTerrain = async () => {
     if (!editingTerrain || !editingTerrain.name || !editingTerrain.category) return;
+    let updatedTerrain: TerrainBox;
     if ('id' in editingTerrain) {
-        onTerrainChange(terrainBoxes.map(t => t.id === editingTerrain.id ? editingTerrain as TerrainBox : t));
+        updatedTerrain = editingTerrain as TerrainBox;
+        onTerrainChange(terrainBoxes.map(t => t.id === updatedTerrain.id ? updatedTerrain : t));
     } else {
-        const newTerrain = { ...editingTerrain, id: `custom-${generateUUID()}` } as TerrainBox;
-        onTerrainChange([...terrainBoxes, newTerrain]);
+        updatedTerrain = { ...editingTerrain, id: `custom-${generateUUID()}` } as TerrainBox;
+        onTerrainChange([...terrainBoxes, updatedTerrain]);
     }
+    // Upload image if a file was selected
+    if (terrainImageFile) {
+        setTerrainImageUploading(true);
+        try {
+            await firebaseService.uploadTerrainImage(updatedTerrain.id, terrainImageFile);
+        } catch (e) {
+            console.error('Error uploading terrain image:', e);
+            alert('Terrain saved but image upload failed. Check console.');
+        } finally {
+            setTerrainImageUploading(false);
+        }
+    }
+    setTerrainImageFile(null);
     setEditingTerrain(null);
+  }
+
+  const handleRemoveTerrainImage = async (terrainId: string) => {
+    if (!confirm('Remove the uploaded image for this terrain?')) return;
+    setTerrainImageRemoving(terrainId);
+    try {
+        await firebaseService.removeTerrainImage(terrainId);
+    } catch (e) {
+        console.error('Error removing terrain image:', e);
+        alert('Error removing image. Check console.');
+    } finally {
+        setTerrainImageRemoving(null);
+    }
   }
 
   const handleDeleteTerrain = (id: string) => {
     if(confirm('Delete this terrain box?')) onTerrainChange(terrainBoxes.filter(t => t.id !== id));
+  }
+
+  const handleToggleTerrainDisabled = (id: string) => {
+    onTerrainChange(terrainBoxes.map(t => t.id === id ? { ...t, disabled: !t.disabled } : t));
   }
 
   const getMembershipExpiry = (paidDate: string): string => {
@@ -246,10 +281,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <select value={editingTerrain?.category} onChange={(e) => setEditingTerrain({...editingTerrain, category: e.target.value as TerrainCategory })} className="w-full bg-neutral-900 border border-neutral-600 rounded px-3 py-2 text-white">
             {Object.values(TerrainCategory).map(c => <option key={c} value={c}>{c}</option>)}
         </select>
-        <input type="text" placeholder="Image URL" value={editingTerrain?.imageUrl} onChange={(e) => setEditingTerrain({...editingTerrain, imageUrl: e.target.value })} className="w-full bg-neutral-900 border border-neutral-600 rounded px-3 py-2 text-white" />
+        <input type="text" placeholder="Image URL (fallback)" value={editingTerrain?.imageUrl} onChange={(e) => setEditingTerrain({...editingTerrain, imageUrl: e.target.value })} className="w-full bg-neutral-900 border border-neutral-600 rounded px-3 py-2 text-white" />
+        <div>
+            <label className="block text-xs text-neutral-400 mb-1">Upload Image {editingTerrain?.uploadedImageUrl ? '(will replace current)' : '(optional, overrides URL above)'}</label>
+            <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setTerrainImageFile(e.target.files?.[0] || null)}
+                className="w-full text-sm text-neutral-400 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:font-medium file:bg-amber-600 file:text-white hover:file:bg-amber-700 file:cursor-pointer"
+            />
+            {terrainImageFile && (
+                <p className="text-xs text-green-400 mt-1">Selected: {terrainImageFile.name}</p>
+            )}
+            {editingTerrain?.uploadedImageUrl && !terrainImageFile && (
+                <p className="text-xs text-neutral-400 mt-1">Current uploaded image will be kept.</p>
+            )}
+        </div>
         <div className="flex gap-2">
-            <button onClick={handleSaveTerrain} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-1.5 rounded text-sm">Save</button>
-            <button onClick={() => setEditingTerrain(null)} className="bg-neutral-700 text-white px-4 py-1.5 rounded text-sm">Cancel</button>
+            <button onClick={handleSaveTerrain} disabled={terrainImageUploading} className="bg-amber-600 hover:bg-amber-700 disabled:bg-neutral-700 disabled:text-neutral-500 text-white px-4 py-1.5 rounded text-sm">
+                {terrainImageUploading ? 'Uploading...' : 'Save'}
+            </button>
+            <button onClick={() => { setEditingTerrain(null); setTerrainImageFile(null); }} className="bg-neutral-700 text-white px-4 py-1.5 rounded text-sm">Cancel</button>
         </div>
     </div>
   )
@@ -401,10 +453,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
         {editingTerrain && renderTerrainForm()}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4 max-h-[40rem] overflow-y-auto pr-2">
             {terrainBoxes.map(box => (
-                <div key={box.id} draggable onDragStart={(e) => handleDragStart(e, box.id, 'terrain')} onDragEnd={handleDragEnd} onDragOver={handleDragOver} onDrop={(e) => handleTerrainDrop(e, box.id)} className={`bg-neutral-800 rounded-lg overflow-hidden border border-neutral-700 relative ${draggedId === box.id ? 'opacity-40' : ''}`}>
+                <div key={box.id} draggable onDragStart={(e) => handleDragStart(e, box.id, 'terrain')} onDragEnd={handleDragEnd} onDragOver={handleDragOver} onDrop={(e) => handleTerrainDrop(e, box.id)} className={`bg-neutral-800 rounded-lg overflow-hidden border relative ${box.disabled ? 'border-red-900/50 opacity-60' : 'border-neutral-700'} ${draggedId === box.id ? 'opacity-40' : ''}`}>
                     <div className="absolute top-2 left-2 cursor-grab text-neutral-300 bg-black/30 rounded-full p-1 z-10"><DragHandle /></div>
-                    <img src={box.imageUrl} alt={box.name} className="w-full h-32 object-cover" />
-                    <div className="p-3"><p className="font-bold text-sm truncate">{box.name}</p><p className="text-xs text-neutral-400">{box.category}</p><div className="flex gap-3 mt-3"><button onClick={() => setEditingTerrain(box)} className="text-xs text-neutral-400">Edit</button><button onClick={() => handleDeleteTerrain(box.id)} className="text-xs text-red-500">Delete</button></div></div>
+                    <div className="absolute top-2 right-2 z-10 flex gap-1">
+                        {box.disabled && <span className="text-[9px] bg-red-900 text-red-200 px-1.5 py-0.5 rounded-full border border-red-800">Disabled</span>}
+                        {box.uploadedImageUrl && <span className="text-[9px] bg-green-800 text-green-200 px-1.5 py-0.5 rounded-full border border-green-700">Uploaded</span>}
+                    </div>
+                    <img src={box.uploadedImageUrl || box.imageUrl} alt={box.name} className={`w-full h-32 object-cover ${box.disabled ? 'grayscale' : ''}`} />
+                    <div className="p-3"><p className="font-bold text-sm truncate">{box.name}</p><p className="text-xs text-neutral-400">{box.category}</p><div className="flex gap-3 mt-3 flex-wrap"><button onClick={() => setEditingTerrain(box)} className="text-xs text-neutral-400">Edit</button><button onClick={() => handleToggleTerrainDisabled(box.id)} className={`text-xs ${box.disabled ? 'text-green-400 hover:text-green-300' : 'text-yellow-400 hover:text-yellow-300'}`}>{box.disabled ? 'Enable' : 'Disable'}</button>{box.uploadedImageUrl && (<button onClick={() => handleRemoveTerrainImage(box.id)} disabled={terrainImageRemoving === box.id} className="text-xs text-orange-400 hover:text-orange-300 disabled:text-neutral-600">{terrainImageRemoving === box.id ? 'Removing...' : 'Remove Image'}</button>)}<button onClick={() => handleDeleteTerrain(box.id)} className="text-xs text-red-500">Delete</button></div></div>
                 </div>
             ))}
         </div>
