@@ -20,8 +20,7 @@ import {
     Unsubscribe,
     writeBatch
 } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { auth, db, storage } from '../firebaseConfig';
+import { auth, db } from '../firebaseConfig';
 import { User, Booking, Table, TerrainBox } from '../types';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
 
@@ -263,34 +262,31 @@ export const initTerrainBoxesIfEmpty = async (): Promise<void> => {
     }
 };
 
-// Upload a terrain image to Firebase Storage (replaces any existing image for this terrain)
+// Upload a terrain image as a base64 data URL stored directly in Firestore
 export const uploadTerrainImage = async (terrainId: string, file: File): Promise<string> => {
-    const storageRef = ref(storage, `terrain-images/${terrainId}`);
-    await uploadBytes(storageRef, file);
-    const downloadUrl = await getDownloadURL(storageRef);
+    const dataUrl = await fileToBase64(file);
 
-    // Update the terrain doc with the uploaded image URL
+    // Update the terrain doc with the base64 data URL
     const terrainDoc = doc(db, 'terrainBoxes', terrainId);
-    await updateDoc(terrainDoc, { uploadedImageUrl: downloadUrl });
+    await updateDoc(terrainDoc, { uploadedImageUrl: dataUrl });
 
-    return downloadUrl;
+    return dataUrl;
 };
 
-// Remove a terrain's uploaded image from Firebase Storage and clear the field
+// Remove a terrain's uploaded image (clear the field in Firestore)
 export const removeTerrainImage = async (terrainId: string): Promise<void> => {
-    try {
-        const storageRef = ref(storage, `terrain-images/${terrainId}`);
-        await deleteObject(storageRef);
-    } catch (error: unknown) {
-        // Ignore if the file doesn't exist in storage
-        if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code !== 'storage/object-not-found') {
-            throw error;
-        }
-    }
-
-    // Clear the uploadedImageUrl field on the terrain doc
     const terrainDoc = doc(db, 'terrainBoxes', terrainId);
     await updateDoc(terrainDoc, { uploadedImageUrl: null });
+};
+
+// Convert a File to a base64 data URL string
+const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
 };
 
 // =====================================================
