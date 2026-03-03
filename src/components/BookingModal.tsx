@@ -6,7 +6,7 @@ import { generateUUID } from '../utils';
 interface BookingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (booking: Booking) => void;
+  onSave: (booking: Booking) => Promise<void>;
   user: User;
   editingBooking?: Booking | null;
   tables: Table[];
@@ -100,7 +100,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (cancelledDates.includes(date)) {
         setError("This date has been cancelled. Bookings are not allowed.");
         return;
@@ -127,11 +127,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         timestamp: Date.now(),
         status: editingBooking ? editingBooking.status : 'active',
     };
-    onSave(newBooking);
-    if (editingBooking) {
-      onClose();
-    } else {
-      setConfirmedBooking(newBooking);
+    try {
+      await onSave(newBooking);
+      if (editingBooking) {
+        onClose();
+      } else {
+        setConfirmedBooking(newBooking);
+      }
+    } catch (err) {
+      console.error('Failed to save booking:', err);
+      setError('Failed to save booking. Please try again.');
     }
   };
 
