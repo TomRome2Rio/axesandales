@@ -13,7 +13,8 @@ import { WelcomeView } from './components/WelcomeView';
 import { auth } from './firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import * as firebaseService from './services/firebaseService';
-import { getSelectableDates, getUpcomingTuesdays } from './constants';
+import { getSelectableDates, getBookableDates } from './constants';
+import { canModifyBooking } from './services/bookingService';
 import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory } from './types';
 
 type PageKey = 'home' | 'about' | 'location' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome';
@@ -242,8 +243,13 @@ setIsBookingModalOpen(true);
 
 const handleDelete = async (id: string) => {
 if (confirm('Are you sure you want to cancel this booking?')) {
+try {
 await firebaseService.cancelBooking(id, user?.id || 'unknown');
 showToast('Booking cancelled.');
+} catch (err) {
+console.error('Failed to cancel booking:', err);
+showToast('Failed to cancel booking. Please try again.');
+}
 }
 };
 
@@ -283,9 +289,7 @@ const bookingsForSelectedDate = [
 ];
 const isDateCancelled = cancelledDates.includes(selectedDate);
 
-const bookableDates = [ ...new Set([...getUpcomingTuesdays(), ...specialEventDates]) ]
-.filter(d => !cancelledDates.includes(d) && d >= new Date().toISOString().split('T')[0])
-.sort();
+const bookableDates = getBookableDates(specialEventDates, cancelledDates);
 
 // Inject permanent painting table booking for every bookable date
 const paintingTableBookings: Booking[] = bookableDates.map(d => ({
@@ -571,7 +575,7 @@ allUsers={users}
         <div className="text-xs text-green-400 font-medium">Available</div>
       )}
     </div>
-    {popover.booking && user && (user.id === popover.booking.memberId || user.isAdmin) && (
+    {popover.booking && canModifyBooking(popover.booking, user) && (
       <div className="px-4 pb-4 pt-1 border-t border-neutral-700 flex gap-2">
         <button onClick={() => { const b = popover.booking!; setPopover(null); handleEdit(b); }} className="flex-1 text-xs bg-neutral-700 hover:bg-neutral-600 py-1.5 rounded text-neutral-300 transition-colors">Edit</button>
         <button onClick={() => { const id = popover.booking!.id; setPopover(null); handleDelete(id); }} className="flex-1 text-xs bg-red-900/30 hover:bg-red-900/50 py-1.5 rounded text-red-300 transition-colors">Cancel</button>

@@ -65,6 +65,16 @@ export const getUpcomingTuesdays = (): string[] => {
   return dates;
 };
 
+/**
+ * Get dates available for new bookings: upcoming Tuesdays + special event dates,
+ * excluding cancelled dates and past dates.
+ */
+export const getBookableDates = (specialEventDates: string[], cancelledDates: string[]): string[] => {
+    return [...new Set([...getUpcomingTuesdays(), ...specialEventDates])]
+      .filter(d => !cancelledDates.includes(d) && d >= new Date().toISOString().split('T')[0])
+      .sort();
+};
+
 export const getSelectableDates = (specialEventDates: string[], allBookings: Booking[], cancelledDates: string[]): {value: string, isCancelled: boolean}[] => {
     const tuesdays = new Set(getUpcomingTuesdays());
     const specialDays = new Set(specialEventDates);

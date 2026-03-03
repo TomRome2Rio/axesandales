@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { getUpcomingTuesdays, getSelectableDates } from '../constants';
+import { getUpcomingTuesdays, getSelectableDates, getBookableDates } from '../constants';
 import { Booking } from '../types';
 
 // ─── Helper ─────────────────────────────────────────────
@@ -163,5 +163,66 @@ describe('getSelectableDates', () => {
     const result = getSelectableDates(['2026-03-10'], [booking], []);
     const march10Count = result.filter(d => d.value === '2026-03-10').length;
     expect(march10Count).toBe(1);
+  });
+});
+
+// ─── getBookableDates ───────────────────────────────────
+
+describe('getBookableDates', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('includes upcoming Tuesdays', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-04T12:00:00Z'));
+    const result = getBookableDates([], []);
+    expect(result).toContain('2026-03-10');
+  });
+
+  it('includes special event dates', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-04T12:00:00Z'));
+    const result = getBookableDates(['2026-03-15'], []);
+    expect(result).toContain('2026-03-15');
+  });
+
+  it('excludes cancelled dates', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-04T12:00:00Z'));
+    const result = getBookableDates([], ['2026-03-10']);
+    expect(result).not.toContain('2026-03-10');
+  });
+
+  it('excludes past dates', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+    const result = getBookableDates([], []);
+    expect(result).not.toContain('2026-03-03');
+  });
+
+  it('returns dates in ascending order', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-04T12:00:00Z'));
+    const result = getBookableDates(['2026-03-22', '2026-03-08'], []);
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i] > result[i - 1]).toBe(true);
+    }
+  });
+
+  it('deduplicates Tuesdays that are also special events', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-04T12:00:00Z'));
+    const result = getBookableDates(['2026-03-10'], []);
+    const count = result.filter(d => d === '2026-03-10').length;
+    expect(count).toBe(1);
+  });
+
+  it('does not include existing booking dates (unlike getSelectableDates)', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-03-04T12:00:00Z'));
+    // getBookableDates doesn't take bookings — a non-Tuesday, non-special date won't appear
+    const result = getBookableDates([], []);
+    expect(result).not.toContain('2026-03-12'); // a Thursday
   });
 });
