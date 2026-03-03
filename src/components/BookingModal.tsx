@@ -39,9 +39,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [unavailableTables, setUnavailableTables] = useState<Map<string, string>>(new Map());
   const [unavailableTerrain, setUnavailableTerrain] = useState<Map<string, string>>(new Map());
+  const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+        // Don't reset form state while showing the confirmation screen
+        if (confirmedBooking) return;
         if (editingBooking) {
             setDate(editingBooking.date);
             setSelectedTableId(editingBooking.tableId);
@@ -63,8 +66,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         setPlayerSearchQuery('');
         setIsPlayerDropdownOpen(false);
         setError('');
+        setConfirmedBooking(null);
     }
-  }, [isOpen, editingBooking, initialDate, bookableDates]);
+  }, [isOpen, editingBooking, initialDate, bookableDates, confirmedBooking]);
 
   useEffect(() => {
     const bookings = allBookings.filter(b => b.date === date);
@@ -120,10 +124,74 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         status: editingBooking ? editingBooking.status : 'active',
     };
     onSave(newBooking);
-    onClose();
+    if (editingBooking) {
+      onClose();
+    } else {
+      setConfirmedBooking(newBooking);
+    }
   };
 
   if (!isOpen) return null;
+
+  if (confirmedBooking) {
+    const bookedTable = tables.find(t => t.id === confirmedBooking.tableId);
+    const bookedTerrain = confirmedBooking.terrainBoxId ? terrainBoxes.find(b => b.id === confirmedBooking.terrainBoxId) : null;
+    const displayDate = new Date(confirmedBooking.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
+    const tagged = confirmedBooking.taggedPlayerIds?.map(id => allUsers.find(u => u.id === id)?.name).filter(Boolean) || [];
+    return (
+      <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-2 md:p-4 flex items-center justify-center">
+        <div className="bg-neutral-800 rounded-xl shadow-2xl max-w-md w-full border border-neutral-700 overflow-hidden mx-auto">
+          <div className="p-8 text-center">
+            <div className="mx-auto w-16 h-16 bg-green-600/20 rounded-full flex items-center justify-center mb-5">
+              <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+            </div>
+            <h2 className="text-xl font-bold text-white mb-1">Booking Confirmed!</h2>
+            <p className="text-neutral-400 text-sm mb-6">Your table has been reserved successfully.</p>
+            <div className="bg-neutral-900/60 rounded-lg border border-neutral-700 p-4 text-left space-y-3 mb-6">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-neutral-400 uppercase tracking-wider">Date</span>
+                <span className="text-sm text-white font-medium">{displayDate}</span>
+              </div>
+              <div className="border-t border-neutral-700/50" />
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-neutral-400 uppercase tracking-wider">Table</span>
+                <span className="text-sm text-white font-medium">{bookedTable?.name || confirmedBooking.tableId}</span>
+              </div>
+              <div className="border-t border-neutral-700/50" />
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-neutral-400 uppercase tracking-wider">Game</span>
+                <span className="text-sm text-white font-medium">{confirmedBooking.gameSystem}</span>
+              </div>
+              <div className="border-t border-neutral-700/50" />
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-neutral-400 uppercase tracking-wider">Players</span>
+                <span className="text-sm text-white font-medium">{confirmedBooking.playerCount}</span>
+              </div>
+              {bookedTerrain && (<>
+                <div className="border-t border-neutral-700/50" />
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-neutral-400 uppercase tracking-wider">Terrain</span>
+                  <span className="text-sm text-white font-medium">{bookedTerrain.name}</span>
+                </div>
+              </>)}
+              {tagged.length > 0 && (<>
+                <div className="border-t border-neutral-700/50" />
+                <div className="flex justify-between items-start">
+                  <span className="text-xs text-neutral-400 uppercase tracking-wider pt-0.5">With</span>
+                  <div className="flex flex-wrap justify-end gap-1">
+                    {tagged.map((name, i) => (
+                      <span key={i} className="text-xs bg-amber-900/30 border border-amber-700/50 text-amber-300 px-2 py-0.5 rounded-full">{name}</span>
+                    ))}
+                  </div>
+                </div>
+              </>)}
+            </div>
+            <button onClick={onClose} className="w-full px-6 py-3 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-lg font-bold shadow-lg shadow-amber-900/20 transition-all text-sm">Done</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const enabledTerrain = terrainBoxes.filter(b => !b.disabled);
   const filteredTerrain = activeCategory === 'All' 
