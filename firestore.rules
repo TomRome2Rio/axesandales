@@ -1,0 +1,12 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Mail collection — only Cloud Functions / extensions can write.
+    // No client access allowed.
+    match /mail/{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
