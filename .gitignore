@@ -29,3 +29,7 @@ dist-ssr
 # Local secrets (env files with actual values)
 .env.local
 .env.*.local
+
+# Service account keys
+key.json
+*.key.json
