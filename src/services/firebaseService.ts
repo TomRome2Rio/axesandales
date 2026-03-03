@@ -133,6 +133,19 @@ export const getAllUsers = async (): Promise<User[]> => {
     return userList;
 };
 
+// Subscribe to all users in real-time (for player tagging and admin features)
+export const subscribeUsers = (callback: (users: User[]) => void): Unsubscribe => {
+    const q = query(collection(db, 'users'));
+    return onSnapshot(q, (snapshot) => {
+        const users = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as User));
+        users.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+        callback(users);
+    }, (error) => {
+        console.error('Error subscribing to users:', error);
+        callback([]);
+    });
+};
+
 export const updateUserProfile = async (uid: string, data: Partial<User>) => {
     const userDoc = doc(db, 'users', uid);
     return updateDoc(userDoc, data);

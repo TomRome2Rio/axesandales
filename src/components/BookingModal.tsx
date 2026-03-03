@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Booking, TerrainCategory, User, Table, TerrainBox } from '../types';
 import { GameSystemAutocomplete } from './GameSystemAutocomplete';
 import { generateUUID } from '../utils';
@@ -16,12 +16,13 @@ interface BookingModalProps {
   initialDate: string;
   allBookings: Booking[];
   gameSystems: string[];
+  allUsers: User[];
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({ 
     isOpen, onClose, onSave, user, editingBooking, tables, 
     terrainBoxes, cancelledDates, bookableDates, initialDate, allBookings,
-    gameSystems 
+    gameSystems, allUsers 
 }) => {
   const [date, setDate] = useState(editingBooking?.date || initialDate || bookableDates[0]);
   const [selectedTableId, setSelectedTableId] = useState<string>('');
@@ -29,6 +30,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [gameSystem, setGameSystem] = useState('');
   const [playerCount, setPlayerCount] = useState(2);
   const [error, setError] = useState('');
+  const [taggedPlayerIds, setTaggedPlayerIds] = useState<string[]>([]);
+  const [playerSearchQuery, setPlayerSearchQuery] = useState('');
+  const [isPlayerDropdownOpen, setIsPlayerDropdownOpen] = useState(false);
+  const playerSearchRef = useRef<HTMLDivElement>(null);
   
   const [activeCategory, setActiveCategory] = useState<string>('All');
   const [unavailableTables, setUnavailableTables] = useState<Map<string, string>>(new Map());
@@ -42,14 +47,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             setSelectedTerrainId(editingBooking.terrainBoxId || '');
             setGameSystem(editingBooking.gameSystem);
             setPlayerCount(editingBooking.playerCount);
+            setTaggedPlayerIds(editingBooking.taggedPlayerIds || []);
         } else {
             setGameSystem('');
             setSelectedTableId('');
             setSelectedTerrainId('');
             setPlayerCount(2);
+            setTaggedPlayerIds([]);
             setDate(bookableDates.includes(initialDate) ? initialDate : bookableDates[0]);
         }
         setActiveCategory('All');
+        setPlayerSearchQuery('');
+        setIsPlayerDropdownOpen(false);
         setError('');
     }
   }, [isOpen, editingBooking, initialDate, bookableDates]);
@@ -68,6 +77,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     setUnavailableTables(takenTables);
     setUnavailableTerrain(takenTerrain);
   }, [date, editingBooking, isOpen]);
+
+  // Close player dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (playerSearchRef.current && !playerSearchRef.current.contains(e.target as Node)) {
+        setIsPlayerDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSave = () => {
     if (cancelledDates.includes(date)) {
@@ -92,6 +112,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         memberId: user.id,
         gameSystem,
         playerCount,
+        taggedPlayerIds: taggedPlayerIds.length > 0 ? taggedPlayerIds : undefined,
         timestamp: Date.now(),
         status: editingBooking ? editingBooking.status : 'active',
     };
@@ -144,6 +165,50 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                                     <div className="flex items-center gap-3">
                                         <span className="text-xs text-neutral-400">Players:</span>
                                         <input type="number" min="1" max="10" value={playerCount} onChange={(e) => setPlayerCount(parseInt(e.target.value))} className="w-20 bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm" />
+                                    </div>
+                                    <div className="mt-3" ref={playerSearchRef}>
+                                        <label className="block text-xs text-neutral-400 mb-1">Tag Players (Optional)</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={playerSearchQuery}
+                                                onChange={(e) => { setPlayerSearchQuery(e.target.value); setIsPlayerDropdownOpen(true); }}
+                                                onFocus={() => setIsPlayerDropdownOpen(true)}
+                                                placeholder="Search users…"
+                                                className="w-full bg-neutral-800 border border-neutral-600 rounded px-3 py-2 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm"
+                                            />
+                                            {isPlayerDropdownOpen && (() => {
+                                                const filtered = allUsers
+                                                    .filter(u => u.id !== user.id)
+                                                    .filter(u => !taggedPlayerIds.includes(u.id))
+                                                    .filter(u => u.name.toLowerCase().includes(playerSearchQuery.toLowerCase()))
+                                                    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+                                                return filtered.length > 0 ? (
+                                                    <div className="absolute z-50 w-full mt-1 bg-neutral-800 border border-neutral-600 rounded-lg shadow-xl max-h-36 overflow-y-auto">
+                                                        {filtered.map(u => (
+                                                            <button key={u.id} type="button" onClick={() => { setTaggedPlayerIds(prev => [...prev, u.id]); setPlayerSearchQuery(''); setIsPlayerDropdownOpen(false); }} className="w-full text-left px-3 py-2 text-sm text-neutral-200 hover:bg-neutral-700 transition-colors">
+                                                                <span className="truncate">{u.name}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : null;
+                                            })()}
+                                        </div>
+                                        {taggedPlayerIds.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 mt-2">
+                                                {taggedPlayerIds.map(id => {
+                                                    const taggedUser = allUsers.find(u => u.id === id);
+                                                    return (
+                                                        <span key={id} className="inline-flex items-center gap-1 bg-amber-900/30 border border-amber-700/50 text-amber-300 text-xs px-2 py-1 rounded-full">
+                                                            {taggedUser?.name || 'Unknown'}
+                                                            <button type="button" onClick={() => setTaggedPlayerIds(prev => prev.filter(p => p !== id))} className="hover:text-white transition-colors">
+                                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                                            </button>
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

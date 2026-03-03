@@ -35,6 +35,7 @@ export interface Booking {
   memberId: string; // To link to logged in user
   gameSystem: string;
   playerCount: number;
+  taggedPlayerIds?: string[]; // Optional list of other user IDs playing at this table
   timestamp: number;
   status: 'active' | 'cancelled';
   cancelledAt?: number; // Timestamp of when the booking was cancelled
