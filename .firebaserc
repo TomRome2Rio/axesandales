@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "axes-and-ales-booking-site"
+  },
+  "targets": {},
+  "etags": {
+    "axes-and-ales-booking-site": {
+      "extensionInstances": {
+        "firestore-send-email": "8df05b6c45ef2e18abcc614d12b65c845a9978e030c91b1094f6df3eafffb259"
+      }
+    }
   }
 }

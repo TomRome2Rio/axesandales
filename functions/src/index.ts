@@ -1,5 +1,8 @@
 import {setGlobalOptions} from "firebase-functions";
-import {onDocumentCreated, onDocumentUpdated} from "firebase-functions/v2/firestore";
+import {
+  onDocumentCreated,
+  onDocumentUpdated,
+} from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import {getFirestore} from "firebase-admin/firestore";
 import {initializeApp} from "firebase-admin/app";
@@ -29,7 +32,9 @@ interface BookingData {
 }
 
 /**
- * Format a date string (YYYY-MM-DD) into a human-readable format.
+ * Format a date string into a human-readable format.
+ * @param {string} dateStr - YYYY-MM-DD date string.
+ * @return {string} Formatted date.
  */
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
@@ -43,9 +48,14 @@ function formatDate(dateStr: string): string {
 
 /**
  * Look up a user's email from the users collection.
+ * @param {string} memberId - Firebase user ID.
+ * @return {Promise<string | null>} The user's email.
  */
-async function getUserEmail(memberId: string): Promise<string | null> {
-  const userDoc = await db.collection("users").doc(memberId).get();
+async function getUserEmail(
+  memberId: string,
+): Promise<string | null> {
+  const userDoc = await db
+    .collection("users").doc(memberId).get();
   if (userDoc.exists) {
     return userDoc.data()?.email || null;
   }
@@ -54,9 +64,14 @@ async function getUserEmail(memberId: string): Promise<string | null> {
 
 /**
  * Look up a table name from the tables collection.
+ * @param {string} tableId - Table document ID.
+ * @return {Promise<string>} The table name.
  */
-async function getTableName(tableId: string): Promise<string> {
-  const tableDoc = await db.collection("tables").doc(tableId).get();
+async function getTableName(
+  tableId: string,
+): Promise<string> {
+  const tableDoc = await db
+    .collection("tables").doc(tableId).get();
   if (tableDoc.exists) {
     return tableDoc.data()?.name || tableId;
   }
@@ -64,10 +79,15 @@ async function getTableName(tableId: string): Promise<string> {
 }
 
 /**
- * Look up a terrain box name from the terrainBoxes collection.
+ * Look up a terrain box name.
+ * @param {string} terrainBoxId - Terrain box document ID.
+ * @return {Promise<string>} The terrain box name.
  */
-async function getTerrainName(terrainBoxId: string): Promise<string> {
-  const terrainDoc = await db.collection("terrainBoxes").doc(terrainBoxId).get();
+async function getTerrainName(
+  terrainBoxId: string,
+): Promise<string> {
+  const terrainDoc = await db
+    .collection("terrainBoxes").doc(terrainBoxId).get();
   if (terrainDoc.exists) {
     return terrainDoc.data()?.name || terrainBoxId;
   }
@@ -75,7 +95,11 @@ async function getTerrainName(terrainBoxId: string): Promise<string> {
 }
 
 /**
- * Build the HTML email body for a booking confirmation.
+ * Build HTML email for a booking confirmation.
+ * @param {BookingData} booking - The booking data.
+ * @param {string} tableName - Display name of the table.
+ * @param {string | null} terrainName - Terrain box name.
+ * @return {string} HTML email body.
  */
 function buildConfirmationEmail(
   booking: BookingData,
@@ -92,12 +116,17 @@ function buildConfirmationEmail(
       Game: ${booking.gameSystem}<br>
       Players: ${booking.playerCount}
     </p>
-    <p>To change or cancel, visit the Axes &amp; Ales booking site.</p>
+    <p>To change or cancel, visit the
+    Axes &amp; Ales booking site.</p>
   `;
 }
 
 /**
- * Build the HTML email body for a booking modification.
+ * Build HTML email for a booking modification.
+ * @param {BookingData} booking - The booking data.
+ * @param {string} tableName - Display name of the table.
+ * @param {string | null} terrainName - Terrain box name.
+ * @return {string} HTML email body.
  */
 function buildModificationEmail(
   booking: BookingData,
@@ -114,12 +143,17 @@ function buildModificationEmail(
       Game: ${booking.gameSystem}<br>
       Players: ${booking.playerCount}
     </p>
-    <p>To make further changes, visit the Axes &amp; Ales booking site.</p>
+    <p>To make further changes, visit the
+    Axes &amp; Ales booking site.</p>
   `;
 }
 
 /**
- * Build the HTML email body for a booking cancellation.
+ * Build HTML email for a booking cancellation.
+ * @param {BookingData} booking - The booking data.
+ * @param {string} tableName - Display name of the table.
+ * @param {string | null} terrainName - Terrain box name.
+ * @return {string} HTML email body.
  */
 function buildCancellationEmail(
   booking: BookingData,
@@ -135,13 +169,17 @@ function buildCancellationEmail(
       Terrain: ${terrainName || "None"}<br>
       Game: ${booking.gameSystem}
     </p>
-    <p>You can make a new booking any time on the Axes &amp; Ales booking site.</p>
+    <p>You can make a new booking any time on the
+    Axes &amp; Ales booking site.</p>
   `;
 }
 
 /**
- * Queue an email by writing to the 'mail' collection
- * (picked up by the Trigger Email from Firestore extension).
+ * Queue an email via the mail collection.
+ * @param {string} to - Recipient email address.
+ * @param {string} subject - Email subject line.
+ * @param {string} html - HTML email body.
+ * @return {Promise<void>} Resolves when queued.
  */
 async function queueEmail(
   to: string,
@@ -164,12 +202,15 @@ async function queueEmail(
 export const onBookingCreated = onDocumentCreated(
   "bookings/{bookingId}",
   async (event) => {
-    const booking = event.data?.data() as BookingData | undefined;
+    const data = event.data?.data();
+    const booking = data as BookingData | undefined;
     if (!booking) return;
 
     const email = await getUserEmail(booking.memberId);
     if (!email) {
-      logger.warn(`No email found for member ${booking.memberId}`);
+      logger.warn(
+        `No email for member ${booking.memberId}`,
+      );
       return;
     }
 
@@ -177,43 +218,64 @@ export const onBookingCreated = onDocumentCreated(
     const terrainName = booking.terrainBoxId ?
       await getTerrainName(booking.terrainBoxId) : null;
 
-    const html = buildConfirmationEmail(booking, tableName, terrainName);
-    await queueEmail(email, `Booking Confirmed — ${formatDate(booking.date)}`, html);
+    const html = buildConfirmationEmail(
+      booking, tableName, terrainName,
+    );
+    const subject =
+      `Booking Confirmed — ${formatDate(booking.date)}`;
+    await queueEmail(email, subject, html);
 
-    logger.info(`Confirmation email queued for ${email} (booking ${event.params.bookingId})`);
+    const id = event.params.bookingId;
+    logger.info(
+      `Confirmation email queued for ${email} (${id})`,
+    );
   },
 );
 
 /**
  * Triggered when a booking is updated.
- * Sends either a modification or cancellation email depending on status change.
+ * Sends a modification or cancellation email.
  */
 export const onBookingUpdated = onDocumentUpdated(
   "bookings/{bookingId}",
   async (event) => {
-    const before = event.data?.before.data() as BookingData | undefined;
-    const after = event.data?.after.data() as BookingData | undefined;
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+    const before = beforeData as BookingData | undefined;
+    const after = afterData as BookingData | undefined;
     if (!before || !after) return;
 
     const email = await getUserEmail(after.memberId);
     if (!email) {
-      logger.warn(`No email found for member ${after.memberId}`);
+      logger.warn(
+        `No email for member ${after.memberId}`,
+      );
       return;
     }
 
     const tableName = await getTableName(after.tableId);
+    const id = event.params.bookingId;
 
     // Booking was cancelled
-    if (before.status === "active" && after.status === "cancelled") {
+    if (
+      before.status === "active" &&
+      after.status === "cancelled"
+    ) {
       const terrainName = after.terrainBoxId ?
         await getTerrainName(after.terrainBoxId) : null;
-      const html = buildCancellationEmail(after, tableName, terrainName);
-      await queueEmail(email, `Booking Cancelled — ${formatDate(after.date)}`, html);
-      logger.info(`Cancellation email queued for ${email} (booking ${event.params.bookingId})`);
+      const html = buildCancellationEmail(
+        after, tableName, terrainName,
+      );
+      const subject =
+        `Booking Cancelled — ${formatDate(after.date)}`;
+      await queueEmail(email, subject, html);
+      logger.info(
+        `Cancellation email queued for ${email} (${id})`,
+      );
       return;
     }
 
-    // Booking was modified (only if something meaningful changed)
+    // Booking was modified (only if something changed)
     const changed =
       before.date !== after.date ||
       before.tableId !== after.tableId ||
@@ -224,9 +286,15 @@ export const onBookingUpdated = onDocumentUpdated(
     if (changed && after.status === "active") {
       const terrainName = after.terrainBoxId ?
         await getTerrainName(after.terrainBoxId) : null;
-      const html = buildModificationEmail(after, tableName, terrainName);
-      await queueEmail(email, `Booking Updated — ${formatDate(after.date)}`, html);
-      logger.info(`Modification email queued for ${email} (booking ${event.params.bookingId})`);
+      const html = buildModificationEmail(
+        after, tableName, terrainName,
+      );
+      const subject =
+        `Booking Updated — ${formatDate(after.date)}`;
+      await queueEmail(email, subject, html);
+      logger.info(
+        `Modification email queued for ${email} (${id})`,
+      );
     }
   },
 );
