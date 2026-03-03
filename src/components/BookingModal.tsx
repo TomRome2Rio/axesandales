@@ -87,7 +87,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
 
     setUnavailableTables(takenTables);
     setUnavailableTerrain(takenTerrain);
-  }, [date, editingBooking, isOpen]);
+  }, [date, editingBooking, isOpen, allBookings]);
 
   // Close player dropdown when clicking outside
   useEffect(() => {

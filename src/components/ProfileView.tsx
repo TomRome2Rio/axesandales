@@ -29,7 +29,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNameChange }) 
       await updateDisplayName(user.id, trimmed);
       onNameChange(trimmed);
       setNameSuccess('Display name updated!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       setNameError('Failed to update display name.');
       console.error(err);
     } finally {
@@ -48,7 +48,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNameChange }) 
         setNewPassword('');
         setConfirmPassword('');
         setError('');
-    } catch (err: any) {
+    } catch (err: unknown) {
         setError("Failed to update password. You may need to logout and login again.");
         console.error(err);
     }

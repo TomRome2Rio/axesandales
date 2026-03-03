@@ -37,7 +37,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onRegis
       await login(email, password);
       resetForm();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError('Failed to login. Please check your email and password.');
       console.error(err);
     } finally {
@@ -59,12 +59,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onRegis
       } else {
         setSuccessMessage('Account created! An admin will activate your membership once payment is confirmed.');
       }
-    } catch (err: any) {
-      if (err.code === 'auth/email-already-in-use') {
+    } catch (err: unknown) {
+      const firebaseErr = err as { code?: string };
+      if (firebaseErr.code === 'auth/email-already-in-use') {
         setError('An account with this email already exists. Try logging in instead.');
-      } else if (err.code === 'auth/weak-password') {
+      } else if (firebaseErr.code === 'auth/weak-password') {
         setError('Password is too weak. Please use at least 6 characters.');
-      } else if (err.code === 'auth/invalid-email') {
+      } else if (firebaseErr.code === 'auth/invalid-email') {
         setError('Please enter a valid email address.');
       } else {
         setError('Registration failed. Please try again.');
@@ -81,8 +82,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onRegis
     try {
       await resetPassword(email);
       setResetSent(true);
-    } catch (err: any) {
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
+    } catch (err: unknown) {
+      const firebaseErr = err as { code?: string };
+      if (firebaseErr.code === 'auth/user-not-found' || firebaseErr.code === 'auth/invalid-email') {
         setError('No account found with that email address.');
       } else {
         setError('Failed to send reset email. Please try again.');
@@ -103,12 +105,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onRegis
       } else {
         onClose();
       }
-    } catch (err: any) {
-      if (err.code === 'auth/popup-closed-by-user') {
+    } catch (err: unknown) {
+      const firebaseErr = err as { code?: string; message?: string };
+      if (firebaseErr.code === 'auth/popup-closed-by-user') {
         // User closed the popup, not an error
       } else {
-        setError(`Google sign-in failed: ${err.code || err.message || 'Unknown error'}`);
-        console.error('Google sign-in error:', err.code, err.message, err);
+        setError(`Google sign-in failed: ${firebaseErr.code || firebaseErr.message || 'Unknown error'}`);
+        console.error('Google sign-in error:', firebaseErr.code, firebaseErr.message, err);
       }
     } finally {
       setLoading(false);
