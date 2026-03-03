@@ -42,6 +42,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [confirmedBooking, setConfirmedBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
+    if (!isOpen) {
+        setConfirmedBooking(null);
+        return;
+    }
     if (isOpen) {
         // Don't reset form state while showing the confirmation screen
         if (confirmedBooking) return;
