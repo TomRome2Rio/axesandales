@@ -56,7 +56,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             setGameSystem(editingBooking.gameSystem);
             setPlayerCount(editingBooking.playerCount);
             setPlayerCountManuallySet(true);
-            setTaggedPlayerIds(editingBooking.taggedPlayerIds || []);
+            setTaggedPlayerIds(editingBooking.taggedPlayerIds);
         } else {
             setGameSystem('');
             setSelectedTableId('');
@@ -123,7 +123,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         memberId: user.id,
         gameSystem,
         playerCount,
-        taggedPlayerIds: taggedPlayerIds.length > 0 ? taggedPlayerIds : undefined,
+        taggedPlayerIds,
         timestamp: Date.now(),
         status: editingBooking ? editingBooking.status : 'active',
     };
@@ -146,7 +146,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     const bookedTable = tables.find(t => t.id === confirmedBooking.tableId);
     const bookedTerrain = confirmedBooking.terrainBoxId ? terrainBoxes.find(b => b.id === confirmedBooking.terrainBoxId) : null;
     const displayDate = new Date(confirmedBooking.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
-    const tagged = confirmedBooking.taggedPlayerIds?.map(id => allUsers.find(u => u.id === id)?.name).filter(Boolean) || [];
+    const tagged = confirmedBooking.taggedPlayerIds.map(id => allUsers.find(u => u.id === id)?.name).filter(Boolean);
     return (
       <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-2 md:p-4 flex items-center justify-center">
         <div className="bg-neutral-800 rounded-xl shadow-2xl max-w-md w-full border border-neutral-700 overflow-hidden mx-auto">

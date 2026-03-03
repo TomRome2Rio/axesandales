@@ -165,7 +165,10 @@ export const deleteUser = async (uid: string) => {
 export const subscribeBookings = (callback: (bookings: Booking[]) => void): Unsubscribe => {
     const q = query(collection(db, 'bookings'));
     return onSnapshot(q, (snapshot) => {
-        const bookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Booking));
+        const bookings = snapshot.docs.map(d => {
+            const data = d.data();
+            return { ...data, id: d.id, taggedPlayerIds: data.taggedPlayerIds ?? [] } as Booking;
+        });
         callback(bookings);
     }, (error) => {
         console.error('Error subscribing to bookings:', error);
