@@ -1,0 +1,7 @@
+# Scan staged files for secrets
+if command -v gitleaks >/dev/null 2>&1; then
+  gitleaks git --pre-commit --staged --verbose
+else
+  echo "⚠ gitleaks not found — skipping secret scan."
+  echo "  Install: winget install Gitleaks.Gitleaks (Windows) / brew install gitleaks (macOS)"
+fi

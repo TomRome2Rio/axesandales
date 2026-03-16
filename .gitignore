@@ -30,6 +30,9 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Firebase extension secrets
+extensions/*.env
+
 # Service account keys
 key.json
 *.key.json
