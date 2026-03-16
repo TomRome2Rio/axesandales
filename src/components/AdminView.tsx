@@ -37,6 +37,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [editingTable, setEditingTable] = useState<Table | Partial<Table> | null>(null);
   const [editingTerrain, setEditingTerrain] = useState<TerrainBox | Partial<TerrainBox> | null>(null);
   const [userFilter, setUserFilter] = useState<'all' | 'pending' | 'member' | 'admin'>('all');
+  const [userSearch, setUserSearch] = useState('');
   
   const [dateToCancel, setDateToCancel] = useState<string>(new Date().toISOString().split('T')[0]);
   const [specialDateToAdd, setSpecialDateToAdd] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -210,7 +211,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
     return 'pending';
   };
 
-  const filteredUsers = userFilter === 'all' ? users : users.filter(u => getUserRole(u) === userFilter);
+  const filteredUsers = (userFilter === 'all' ? users : users.filter(u => getUserRole(u) === userFilter))
+    .filter(u => {
+      if (!userSearch) return true;
+      const q = userSearch.toLowerCase();
+      return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
+    });
   const pendingCount = users.filter(u => !u.isMember && !u.isAdmin).length;
 
   const handleCancelDate = () => {
@@ -359,12 +365,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">{pendingCount} unpaid</span>
                 )}
             </div>
-            <div className="flex gap-1 bg-neutral-900 rounded-lg p-1">
-                {(['all', 'pending', 'member', 'admin'] as const).map(f => (
-                    <button key={f} onClick={() => setUserFilter(f)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${userFilter === f ? 'bg-amber-600 text-white' : 'text-neutral-400 hover:text-white'}`}>
-                        {f === 'all' ? `All (${users.length})` : f === 'pending' ? `Unpaid (${users.filter(u => !u.isMember && !u.isAdmin).length})` : f === 'member' ? `Paid (${users.filter(u => u.isMember && !u.isAdmin).length})` : `Admins (${users.filter(u => u.isAdmin).length})`}
-                    </button>
-                ))}
+            <div className="flex items-center gap-3">
+                <input
+                    type="text"
+                    placeholder="Search by name or email…"
+                    value={userSearch}
+                    onChange={e => setUserSearch(e.target.value)}
+                    className="bg-neutral-900 border border-neutral-600 rounded-lg px-3 py-1.5 text-sm text-white placeholder-neutral-500 focus:ring-1 focus:ring-amber-500 focus:outline-none w-48 md:w-64"
+                />
+                <div className="flex gap-1 bg-neutral-900 rounded-lg p-1">
+                    {(['all', 'pending', 'member', 'admin'] as const).map(f => (
+                        <button key={f} onClick={() => setUserFilter(f)} className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${userFilter === f ? 'bg-amber-600 text-white' : 'text-neutral-400 hover:text-white'}`}>
+                            {f === 'all' ? `All (${users.length})` : f === 'pending' ? `Unpaid (${users.filter(u => !u.isMember && !u.isAdmin).length})` : f === 'member' ? `Paid (${users.filter(u => u.isMember && !u.isAdmin).length})` : `Admins (${users.filter(u => u.isAdmin).length})`}
+                        </button>
+                    ))}
+                </div>
             </div>
         </div>
         <div className="mt-4 space-y-2 max-h-[32rem] overflow-y-auto pr-2">
