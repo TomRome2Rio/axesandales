@@ -42,25 +42,35 @@ These are injected in `.github/workflows/deploy.yml` — the build step writes `
 
 ### 2. Firebase Extension Runtime Config (server-side)
 
-Used for secrets consumed by **Firebase Extensions at runtime** (e.g., the `firestore-send-email` extension's SMTP credentials). These are **never** stored in the repository.
+Used for secrets consumed by **Firebase Extensions at runtime** (e.g., the `firestore-send-email` extension's SMTP credentials).
 
-| Secret | Extension | How to set |
-|---|---|---|
-| Resend SMTP URI | `firestore-send-email` | `firebase ext:configure firestore-send-email` |
+Non-secret extension config (mail collection, from address, region, etc.) is committed in `extensions/firestore-send-email.env`. Secrets are kept in a **local-only** file that is gitignored.
 
-To update an extension secret:
+#### Setup after cloning
+
+Create `extensions/firestore-send-email.env.local` with the full SMTP connection URI including your Resend API key:
+
+```env
+SMTP_CONNECTION_URI=smtps://resend:<your Resend API key>@smtp.resend.com:465
+```
+
+This overrides the placeholder value in the committed `.env` file. Then deploy the extension:
+
+```bash
+firebase deploy --only extensions --project=<PROJECT_ID>
+```
+
+To reconfigure interactively instead:
 
 ```bash
 firebase ext:configure firestore-send-email --project=<PROJECT_ID>
 ```
 
-The CLI will prompt for each config value. Only the SMTP connection URI and password are sensitive — the rest (mail collection, from address, etc.) are non-secret.
-
 ### What NOT to do
 
 - **Never** commit API keys, tokens, or passwords to the repo.
-- **Never** remove `extensions/*.env`, `.env.local`, or `*.key.json` from `.gitignore`.
-- The `extensions/firestore-send-email.env` file is gitignored and exists only as a local reference — it must **not** contain real credentials in any committed version.
+- **Never** remove `extensions/*.env.local`, `.env.local`, or `*.key.json` from `.gitignore`.
+- The `extensions/firestore-send-email.env` file **is** committed and must **not** contain secrets. Secrets go in `extensions/firestore-send-email.env.local` (gitignored).
 
 ### Secret Scanning
 

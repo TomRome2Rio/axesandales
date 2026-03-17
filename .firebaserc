@@ -6,7 +6,7 @@
   "etags": {
     "axes-and-ales-booking-site": {
       "extensionInstances": {
-        "firestore-send-email": "7e3104b3790cedf42714257c189f8cebd657e859ab2214626c16ae722ead200a"
+        "firestore-send-email": "b5f21ed839813eba662ea61bca517ea67222c330f70004bdcc613c06079d00c9"
       }
     }
   }
