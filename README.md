@@ -48,19 +48,17 @@ Non-secret extension config (mail collection, from address, region, etc.) is com
 
 #### Setup after cloning
 
-Create `extensions/firestore-send-email.env.local` with the SMTP password:
+Create `extensions/firestore-send-email.env.local` with the full SMTP connection URI including your Resend API key:
 
 ```env
-SMTP_PASSWORD=<your Resend API key>
+SMTP_CONNECTION_URI=smtps://resend:<your Resend API key>@smtp.resend.com:465
 ```
 
-Then deploy the extension:
+This overrides the placeholder value in the committed `.env` file. Then deploy the extension:
 
 ```bash
 firebase deploy --only extensions --project=<PROJECT_ID>
 ```
-
-The CLI reads both `.env` (committed config) and `.env.local` (secrets) and stores the password in **Google Cloud Secret Manager** — it is never saved as a plaintext env var on the Cloud Function.
 
 To reconfigure interactively instead:
 
