@@ -168,6 +168,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
     if (uid === currentUser.id) return alert("Cannot change your own role.");
     try {
       const today = new Date().toISOString().split('T')[0];
+      const targetUser = users.find(u => u.id === uid);
+      const previousRole = targetUser ? getUserRole(targetUser) : 'pending';
       const updates: Record<string, unknown> = {
         isMember: role === 'member' || role === 'admin',
         isAdmin: role === 'admin',
@@ -179,6 +181,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
         updates.membershipPaidDate = null;
       }
       await firebaseService.updateUserProfile(uid, updates as Partial<User>);
+
+      // Audit trail
+      if (role === 'pending' && previousRole !== 'pending') {
+        await firebaseService.addMembershipAuditEntry({
+          userId: uid,
+          action: 'cancelled',
+          performedBy: currentUser.id,
+          performedByName: currentUser.name,
+          timestamp: Date.now(),
+        });
+      } else if ((role === 'member' || role === 'admin') && previousRole === 'pending') {
+        await firebaseService.addMembershipAuditEntry({
+          userId: uid,
+          action: 'activated',
+          performedBy: currentUser.id,
+          performedByName: currentUser.name,
+          timestamp: Date.now(),
+        });
+      }
+
       onUsersChange();
     } catch (e) {
       alert('Error updating user role. Check console.');
@@ -190,6 +212,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
     try {
       const today = new Date().toISOString().split('T')[0];
       await firebaseService.updateUserProfile(uid, { membershipPaidDate: today } as Partial<User>);
+      await firebaseService.addMembershipAuditEntry({
+        userId: uid,
+        action: 'renewed',
+        performedBy: currentUser.id,
+        performedByName: currentUser.name,
+        timestamp: Date.now(),
+      });
       onUsersChange();
     } catch (e) {
       alert('Error renewing membership. Check console.');

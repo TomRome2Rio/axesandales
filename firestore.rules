@@ -38,6 +38,11 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
+    match /membershipAudit/{entryId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     match /mail/{document} {
       allow read, write: if false;  // Only Cloud Functions can write
     }

@@ -17,11 +17,13 @@ import {
     deleteDoc,
     onSnapshot,
     query,
+    where,
+    orderBy,
     Unsubscribe,
     writeBatch
 } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
-import { User, Booking, Table, TerrainBox } from '../types';
+import { User, Booking, Table, TerrainBox, MembershipAuditEntry } from '../types';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
 
 const googleProvider = new GoogleAuthProvider();
@@ -156,6 +158,36 @@ export const deleteUser = async (uid: string) => {
     // First, delete the Firestore document.
     const userDoc = doc(db, 'users', uid);
     await deleteDoc(userDoc);
+};
+
+// =====================================================
+// MEMBERSHIP AUDIT TRAIL
+// =====================================================
+
+export const addMembershipAuditEntry = async (
+    entry: Omit<MembershipAuditEntry, 'id'>
+): Promise<void> => {
+    const colRef = collection(db, 'membershipAudit');
+    const docRef = doc(colRef);
+    await setDoc(docRef, { ...entry, id: docRef.id });
+};
+
+export const subscribeMembershipAudit = (
+    userId: string,
+    callback: (entries: MembershipAuditEntry[]) => void
+): Unsubscribe => {
+    const q = query(
+        collection(db, 'membershipAudit'),
+        where('userId', '==', userId),
+        orderBy('timestamp', 'desc')
+    );
+    return onSnapshot(q, (snapshot) => {
+        const entries = snapshot.docs.map(d => d.data() as MembershipAuditEntry);
+        callback(entries);
+    }, (error) => {
+        console.error('Error subscribing to membership audit:', error);
+        callback([]);
+    });
 };
 
 // =====================================================

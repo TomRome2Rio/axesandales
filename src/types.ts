@@ -51,6 +51,15 @@ export interface User {
   membershipPaidDate?: string; // ISO date string (YYYY-MM-DD) of when membership was last paid
 }
 
+export interface MembershipAuditEntry {
+  id: string;
+  userId: string;
+  action: 'activated' | 'renewed' | 'cancelled';
+  performedBy: string; // UID of admin who did it
+  performedByName: string;
+  timestamp: number;
+}
+
 export interface DateStat {
   date: string;
   game: string;
