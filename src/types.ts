@@ -64,3 +64,15 @@ export interface DateStat {
   date: string;
   game: string;
 }
+
+export interface ClubEvent {
+  id: string;
+  title: string;
+  description: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD (same as startDate for single-day events)
+  tags: string[];    // e.g. ['Tournament', 'Campaign']
+  createdBy: string; // User ID
+  createdByName: string;
+  createdAt: number; // Timestamp
+}

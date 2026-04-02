@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 
-type NavKey = 'home' | 'about' | 'location' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome';
+type NavKey = 'home' | 'about' | 'location' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events';
 
 export interface LayoutProps {
   user: { id: string; name: string; isMember: boolean; isAdmin?: boolean } | null;
@@ -71,6 +71,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <NavLink to="location">Location</NavLink>
             <NavLink to="membership">Membership</NavLink>
             <NavLink to="layout">Club Layout</NavLink>
+            <NavLink to="events">Events</NavLink>
             <NavLink to="stats">Stats</NavLink>
             {user && <NavLink to="profile">Profile</NavLink>}
             {(user?.isAdmin || isDev) && <NavLink to="admin">Admin</NavLink>}
@@ -139,6 +140,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <NavLink to="location">Location</NavLink>
             <NavLink to="membership">Membership</NavLink>
             <NavLink to="layout">Club Layout</NavLink>
+            <NavLink to="events">Events</NavLink>
             <NavLink to="stats">Stats</NavLink>
             {user && <NavLink to="profile">Profile</NavLink>}
             {(user?.isAdmin || isDev) && <NavLink to="admin">Admin</NavLink>}
