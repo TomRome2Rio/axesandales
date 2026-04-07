@@ -482,7 +482,7 @@ return (
 {currentPage === 'membership' && <MembershipView />}
 {currentPage === 'layout' && <ClubLayoutView />}
 {currentPage === 'stats' && <StatsView />}
-{currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} />}
+{currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} nextClubDate={bookableDates[0] || null} />}
     {currentPage === 'profile' && user && <ProfileView user={user} onNameChange={(newName) => setUser(prev => prev ? { ...prev, name: newName } : prev)} />}
 {currentPage === 'admin' && (user?.isAdmin || isDev) && (
 <AdminView
