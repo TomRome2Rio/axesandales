@@ -29,20 +29,6 @@ const formatMonthHeading = (monthKey: string): string => {
   return new Date(year, month - 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 };
 
-/** Return every month key an event spans (e.g. Apr–Jun → 3 keys). */
-const getMonthKeys = (start: string, end: string): string[] => {
-  const [sY, sM] = start.split('-').map(Number);
-  const [eY, eM] = end.split('-').map(Number);
-  const keys: string[] = [];
-  let y = sY, m = sM;
-  while (y < eY || (y === eY && m <= eM)) {
-    keys.push(`${y}-${String(m).padStart(2, '0')}`);
-    m++;
-    if (m > 12) { m = 1; y++; }
-  }
-  return keys;
-};
-
 const isUpcoming = (event: ClubEvent): boolean => {
   const today = new Date().toISOString().split('T')[0];
   return event.endDate >= today;
@@ -63,14 +49,18 @@ export const EventsView: React.FC<EventsViewProps> = ({ events, user, eventTags,
     return true;
   });
 
-  // Group events by month — multi-month events appear in each month they span
+  // Group events by month — each event appears in exactly one month:
+  // - Future events: first month they occur in
+  // - Already started but not finished: current month
+  const today = new Date().toISOString().split('T')[0];
+  const currentMonthKey = today.slice(0, 7); // "YYYY-MM"
   const groupedByMonth: Map<string, ClubEvent[]> = new Map();
   for (const event of upcomingEvents) {
-    for (const key of getMonthKeys(event.startDate, event.endDate)) {
-      const group = groupedByMonth.get(key) || [];
-      group.push(event);
-      groupedByMonth.set(key, group);
-    }
+    const startKey = event.startDate.slice(0, 7);
+    const key = startKey < currentMonthKey ? currentMonthKey : startKey;
+    const group = groupedByMonth.get(key) || [];
+    group.push(event);
+    groupedByMonth.set(key, group);
   }
   // Sort events within each month by start date
   for (const [, group] of groupedByMonth) {
@@ -267,6 +257,7 @@ export const EventsView: React.FC<EventsViewProps> = ({ events, user, eventTags,
           userName={user.name}
           availableTags={eventTags}
           onAddTag={async (tag) => { await firebaseService.addEventTag(tag); }}
+          onDeleteTag={async (tag) => { await firebaseService.deleteEventTag(tag); }}
           editingEvent={editingEvent}
         />
       )}
