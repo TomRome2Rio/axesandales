@@ -267,6 +267,7 @@ export const EventsView: React.FC<EventsViewProps> = ({ events, user, eventTags,
           userName={user.name}
           availableTags={eventTags}
           onAddTag={async (tag) => { await firebaseService.addEventTag(tag); }}
+          onDeleteTag={async (tag) => { await firebaseService.deleteEventTag(tag); }}
           editingEvent={editingEvent}
         />
       )}

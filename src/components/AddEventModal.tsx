@@ -9,10 +9,11 @@ interface AddEventModalProps {
   userName: string;
   availableTags: string[];
   onAddTag: (tag: string) => void;
+  onDeleteTag: (tag: string) => void;
   editingEvent?: ClubEvent | null;
 }
 
-export const AddEventModal: React.FC<AddEventModalProps> = ({ isOpen, onClose, onSave, userId, userName, availableTags, onAddTag, editingEvent }) => {
+export const AddEventModal: React.FC<AddEventModalProps> = ({ isOpen, onClose, onSave, userId, userName, availableTags, onAddTag, onDeleteTag, editingEvent }) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -20,6 +21,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({ isOpen, onClose, o
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState('');
   const [error, setError] = useState('');
+  const [tagToDelete, setTagToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && editingEvent) {
@@ -129,18 +131,27 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({ isOpen, onClose, o
               {availableTags.map(tag => {
                 const isSelected = selectedTags.includes(tag);
                 return (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => setSelectedTags(prev => isSelected ? prev.filter(t => t !== tag) : [...prev, tag])}
-                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                      isSelected
-                        ? 'bg-amber-900/50 border-amber-700 text-amber-300'
-                        : 'bg-neutral-800 border-neutral-600 text-neutral-400 hover:border-neutral-500 hover:text-neutral-300'
-                    }`}
-                  >
-                    {tag}
-                  </button>
+                  <span key={tag} className="inline-flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTags(prev => isSelected ? prev.filter(t => t !== tag) : [...prev, tag])}
+                      className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                        isSelected
+                          ? 'bg-amber-900/50 border-amber-700 text-amber-300'
+                          : 'bg-neutral-800 border-neutral-600 text-neutral-400 hover:border-neutral-500 hover:text-neutral-300'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                    <button
+                      type="button"
+                      title={`Remove "${tag}" tag`}
+                      onClick={() => setTagToDelete(tag)}
+                      className="text-neutral-500 hover:text-red-400 transition-colors p-0.5"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  </span>
                 );
               })}
             </div>
@@ -201,6 +212,27 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({ isOpen, onClose, o
           </button>
         </div>
       </div>
+
+      {tagToDelete && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60" onClick={() => setTagToDelete(null)}>
+          <div className="bg-neutral-900 border border-neutral-700 rounded-xl shadow-2xl p-6 max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+            <p className="text-white text-sm mb-4">Are you sure you want to permanently remove the tag <strong className="text-amber-300">"{tagToDelete}"</strong>?</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setTagToDelete(null)} className="px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-300 text-sm transition-colors">Cancel</button>
+              <button
+                onClick={() => {
+                  onDeleteTag(tagToDelete);
+                  setSelectedTags(prev => prev.filter(t => t !== tagToDelete));
+                  setTagToDelete(null);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-sm font-semibold transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
