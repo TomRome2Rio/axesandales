@@ -10,14 +10,15 @@ import { LocationView } from './components/LocationView';
 import { MembershipView } from './components/MembershipView';
 import { ClubLayoutView } from './components/ClubLayoutView';
 import { WelcomeView } from './components/WelcomeView';
+import { EventsView } from './components/EventsView';
 import { auth } from './firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import * as firebaseService from './services/firebaseService';
 import { getSelectableDates, getBookableDates } from './constants';
 import { canModifyBooking } from './services/bookingService';
-import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory } from './types';
+import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent } from './types';
 
-type PageKey = 'home' | 'about' | 'location' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome';
+type PageKey = 'home' | 'about' | 'location' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events';
 
 const DEV_USER: User = {
   id: 'dev-local',
@@ -42,6 +43,7 @@ const PATH_TO_PAGE: Record<string, PageKey> = {
   '/profile': 'profile',
   '/admin': 'admin',
   '/welcome': 'welcome',
+  '/events': 'events',
 };
 
 const PAGE_TO_PATH: Record<PageKey, string> = {
@@ -54,6 +56,7 @@ const PAGE_TO_PATH: Record<PageKey, string> = {
   profile: '/profile',
   admin: '/admin',
   welcome: '/welcome',
+  events: '/events',
 };
 
 const getPageFromUrl = (): PageKey => {
@@ -78,6 +81,8 @@ const [users, setUsers] = useState<User[]>([]);
 const [cancelledDates, setCancelledDates] = useState<string[]>([]);
 const [specialEventDates, setSpecialEventDates] = useState<string[]>([]);
 const [gameSystems, setGameSystems] = useState<string[]>([]);
+const [events, setEvents] = useState<ClubEvent[]>([]);
+const [eventTags, setEventTags] = useState<string[]>([]);
 
 const selectableDates = getSelectableDates(specialEventDates, activeBookings, cancelledDates);
 const [selectedDate, setSelectedDate] = useState(selectableDates[0]?.value || new Date().toISOString().split('T')[0]);
@@ -164,6 +169,8 @@ const unsubSchedule = firebaseService.subscribeScheduleConfig((cancelled, specia
     setSpecialEventDates(special);
 });
 const unsubGameSystems = firebaseService.subscribeGameSystems(setGameSystems);
+const unsubEvents = firebaseService.subscribeEvents(setEvents);
+const unsubEventTags = firebaseService.subscribeEventTags(setEventTags);
 const unsubUsers = firebaseService.subscribeUsers(setUsers);
 
 // Listen for Firebase Auth changes
@@ -209,6 +216,8 @@ return () => {
     unsubTerrain();
     unsubSchedule();
     unsubGameSystems();
+    unsubEvents();
+    unsubEventTags();
     unsubUsers();
 };
 }, []);
@@ -473,6 +482,7 @@ return (
 {currentPage === 'membership' && <MembershipView />}
 {currentPage === 'layout' && <ClubLayoutView />}
 {currentPage === 'stats' && <StatsView />}
+{currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} nextClubDate={bookableDates[0] || null} />}
     {currentPage === 'profile' && user && <ProfileView user={user} onNameChange={(newName) => setUser(prev => prev ? { ...prev, name: newName } : prev)} />}
 {currentPage === 'admin' && (user?.isAdmin || isDev) && (
 <AdminView

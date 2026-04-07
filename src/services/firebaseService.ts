@@ -23,7 +23,7 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
-import { User, Booking, Table, TerrainBox, MembershipAuditEntry } from '../types';
+import { User, Booking, Table, TerrainBox, MembershipAuditEntry, ClubEvent } from '../types';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
 
 const googleProvider = new GoogleAuthProvider();
@@ -428,4 +428,57 @@ export const renameGameSystem = async (oldName: string, newName: string): Promis
 export const deleteGameSystem = async (name: string): Promise<void> => {
     const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     await deleteDoc(doc(db, 'gameSystems', id));
+};
+
+// =====================================================
+// EVENTS
+// =====================================================
+
+export const subscribeEvents = (callback: (events: ClubEvent[]) => void): Unsubscribe => {
+    const q = query(collection(db, 'events'), orderBy('startDate', 'asc'));
+    return onSnapshot(q, (snapshot) => {
+        const events = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ClubEvent));
+        callback(events);
+    }, (error) => {
+        console.error('Error subscribing to events:', error);
+        callback([]);
+    });
+};
+
+export const saveEvent = async (event: ClubEvent): Promise<void> => {
+    await setDoc(doc(db, 'events', event.id), event);
+};
+
+export const deleteEvent = async (id: string): Promise<void> => {
+    await deleteDoc(doc(db, 'events', id));
+};
+
+// =====================================================
+// EVENT TAGS
+// =====================================================
+
+export const subscribeEventTags = (callback: (tags: string[]) => void): Unsubscribe => {
+    const q = query(collection(db, 'eventTags'));
+    return onSnapshot(q, (snapshot) => {
+        const tags = snapshot.docs.map(d => d.data().name as string).filter(Boolean);
+        tags.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+        callback(tags);
+    }, (error) => {
+        console.error('Error subscribing to event tags:', error);
+        callback([]);
+    });
+};
+
+export const addEventTag = async (name: string): Promise<void> => {
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const docRef = doc(db, 'eventTags', id);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) {
+        await setDoc(docRef, { name });
+    }
+};
+
+export const deleteEventTag = async (name: string): Promise<void> => {
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    await deleteDoc(doc(db, 'eventTags', id));
 };
