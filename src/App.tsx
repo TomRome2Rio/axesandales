@@ -26,6 +26,7 @@ const DEV_USER: User = {
   name: 'Dev User',
   isMember: true,
   isAdmin: true,
+  membershipExpiryDate: '2026-04-15', // Dev testing: set within 7 days to see expiry banner
 };
 const isDev = import.meta.env.DEV;
 
@@ -354,9 +355,35 @@ return (
 );
 };
 
+const renderExpiryWarningBanner = () => {
+  const effectiveUser = user || (isDev ? DEV_USER : null);
+  if (!effectiveUser || (!effectiveUser.isMember && !effectiveUser.isAdmin)) return null;
+  if (!effectiveUser.membershipExpiryDate) return null;
+  const expiry = new Date(effectiveUser.membershipExpiryDate + 'T00:00:00');
+  const today = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00');
+  const daysUntilExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysUntilExpiry > 7 || daysUntilExpiry < 0) return null;
+  const expiryText = daysUntilExpiry === 0 ? 'today' : daysUntilExpiry === 1 ? 'tomorrow' : `in ${daysUntilExpiry} days`;
+  return (
+    <div className="bg-amber-900/30 border border-amber-700/50 rounded-xl p-4 flex items-start gap-3">
+      <div className="mt-0.5">
+        <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      </div>
+      <div>
+        <h3 className="text-amber-300 font-semibold">Membership Expiring Soon</h3>
+        <p className="text-neutral-400 text-sm mt-1">Your membership expires {expiryText} ({new Date(effectiveUser.membershipExpiryDate + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}). Head to the{' '}
+          <button onClick={() => navigateTo('membership')} className="text-amber-400 hover:text-amber-300 underline font-medium">Membership &amp; Payment</button>{' '}
+          page to renew.</p>
+        <p className="text-neutral-500 text-xs mt-2">Already paid? Don't worry! The committee will update your membership soon.</p>
+      </div>
+    </div>
+  );
+};
+
 const renderDashboard = () => (
 <div className="space-y-8">
 {renderPendingBanner()}
+{renderExpiryWarningBanner()}
 <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-neutral-800 p-4 rounded-xl border border-neutral-700 shadow-lg">
 <div className="flex items-center gap-3 w-full md:w-auto">
 <label className="text-neutral-400 font-medium whitespace-nowrap">Viewing Date:</label>
