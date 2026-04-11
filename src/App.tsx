@@ -171,7 +171,15 @@ const unsubSchedule = firebaseService.subscribeScheduleConfig((cancelled, specia
 const unsubGameSystems = firebaseService.subscribeGameSystems(setGameSystems);
 const unsubEvents = firebaseService.subscribeEvents(setEvents);
 const unsubEventTags = firebaseService.subscribeEventTags(setEventTags);
-const unsubUsers = firebaseService.subscribeUsers(setUsers);
+const unsubUsers = firebaseService.subscribeUsers((allUsers) => {
+    setUsers(allUsers);
+    // Keep current user profile in sync with real-time updates
+    setUser(prev => {
+        if (!prev) return prev;
+        const updated = allUsers.find(u => u.id === prev.id);
+        return updated ?? prev;
+    });
+});
 
 // Listen for Firebase Auth changes
 const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
