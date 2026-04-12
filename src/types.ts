@@ -49,7 +49,6 @@ export interface User {
   isMember: boolean;
   isAdmin?: boolean;
   membershipPaidDate?: string; // ISO date string (YYYY-MM-DD) of when membership was last paid
-  membershipExpiryDate?: string; // ISO date string (YYYY-MM-DD) of when membership expires
 }
 
 export interface MembershipAuditEntry {
