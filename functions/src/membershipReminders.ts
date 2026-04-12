@@ -126,7 +126,7 @@ async function sendReminders(): Promise<void> {
   for (const {days, label} of targets) {
     const targetDate = getDateInDays(days);
     console.log(
-      `Checking for memberships expiring on ` +
+      "Checking for memberships expiring on " +
       `${targetDate} (${label} reminder)...`,
     );
 
