@@ -48,6 +48,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [terrainImageFile, setTerrainImageFile] = useState<File | null>(null);
   const [terrainImageUploading, setTerrainImageUploading] = useState(false);
   const [terrainImageRemoving, setTerrainImageRemoving] = useState<string | null>(null);
+  const [renewedThisSession] = useState(() => new Set<string>());
+  const [editingExpiryUserId, setEditingExpiryUserId] = useState<string | null>(null);
+  const [editingExpiryValue, setEditingExpiryValue] = useState<string>('');
+  const [editingPaidUserId, setEditingPaidUserId] = useState<string | null>(null);
+  const [editingPaidValue, setEditingPaidValue] = useState<string>('');
 
   const handleDragStart = (e: React.DragEvent, id: string, type: 'table' | 'terrain') => {
     e.dataTransfer.setData(type, id);
@@ -146,14 +151,30 @@ export const AdminView: React.FC<AdminViewProps> = ({
     onTerrainChange(terrainBoxes.map(t => t.id === id ? { ...t, disabled: !t.disabled } : t));
   }
 
-  const getMembershipExpiry = (paidDate: string): string => {
-    const paid = new Date(paidDate + 'T00:00:00');
-    const year = paid.getFullYear();
-    // Financial year runs July 1 - June 30
-    // If paid on or after July 1, expires June 30 of next year
-    // If paid before July 1, expires June 30 of same year
-    const expiryYear = paid.getMonth() >= 6 ? year + 1 : year; // getMonth() is 0-indexed, so 6 = July
-    return `${expiryYear}-06-30`;
+  const MAX_EXTENSION_MONTHS = 18; // Cap: membership can't extend more than 18 months from today
+
+  const computeNewExpiry = (currentExpiryDate?: string): string => {
+    const today = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00');
+    const maxExpiry = new Date(today);
+    maxExpiry.setMonth(maxExpiry.getMonth() + MAX_EXTENSION_MONTHS);
+
+    let base: Date;
+    if (currentExpiryDate) {
+      const current = new Date(currentExpiryDate + 'T00:00:00');
+      // If membership is still active, extend from current expiry; otherwise from today
+      base = current > today ? current : today;
+    } else {
+      base = today;
+    }
+
+    const newExpiry = new Date(base);
+    newExpiry.setFullYear(newExpiry.getFullYear() + 1);
+
+    // Cap at max extension
+    if (newExpiry > maxExpiry) {
+      return maxExpiry.toISOString().split('T')[0];
+    }
+    return newExpiry.toISOString().split('T')[0];
   };
 
   const formatDate = (dateStr: string): string => {
@@ -174,11 +195,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
         isMember: role === 'member' || role === 'admin',
         isAdmin: role === 'admin',
       };
-      if ((role === 'member' || role === 'admin') && !users.find(u => u.id === uid)?.membershipPaidDate) {
+      if ((role === 'member' || role === 'admin') && !targetUser?.membershipPaidDate) {
         updates.membershipPaidDate = today;
+        updates.membershipExpiryDate = computeNewExpiry(targetUser?.membershipExpiryDate);
+        renewedThisSession.add(uid);
       }
       if (role === 'pending') {
         updates.membershipPaidDate = null;
+        updates.membershipExpiryDate = null;
       }
       await firebaseService.updateUserProfile(uid, updates as Partial<User>);
 
@@ -209,9 +233,31 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   const handleRenewMembership = async (uid: string) => {
+    if (renewedThisSession.has(uid)) {
+      alert('This membership has already been renewed. Reload the page to renew again.');
+      return;
+    }
     try {
       const today = new Date().toISOString().split('T')[0];
-      await firebaseService.updateUserProfile(uid, { membershipPaidDate: today } as Partial<User>);
+      const targetUser = users.find(u => u.id === uid);
+      const newExpiry = computeNewExpiry(targetUser?.membershipExpiryDate);
+
+      // Guard against accidental double-click
+      if (targetUser?.membershipExpiryDate) {
+        const currentExpiry = new Date(targetUser.membershipExpiryDate + 'T00:00:00');
+        const maxExpiry = new Date(today + 'T00:00:00');
+        maxExpiry.setMonth(maxExpiry.getMonth() + MAX_EXTENSION_MONTHS);
+        if (currentExpiry >= maxExpiry) {
+          alert(`Membership already extends to ${formatDate(targetUser.membershipExpiryDate)}, which is at or beyond the maximum allowed (${MAX_EXTENSION_MONTHS} months from today). Cannot extend further.`);
+          return;
+        }
+      }
+
+      await firebaseService.updateUserProfile(uid, {
+        membershipPaidDate: today,
+        membershipExpiryDate: newExpiry,
+      } as Partial<User>);
+      renewedThisSession.add(uid);
       await firebaseService.addMembershipAuditEntry({
         userId: uid,
         action: 'renewed',
@@ -231,6 +277,40 @@ export const AdminView: React.FC<AdminViewProps> = ({
     if(confirm('Delete this user? This only removes their profile data, not their authentication account.')) {
         await firebaseService.deleteUser(id);
         onUsersChange();
+    }
+  };
+
+  const handleSaveExpiryOverride = async (uid: string) => {
+    const targetUser = users.find(u => u.id === uid);
+    const oldExpiry = targetUser?.membershipExpiryDate ? formatDate(targetUser.membershipExpiryDate) : 'none';
+    const newExpiry = formatDate(editingExpiryValue);
+    if (!confirm(`Change expiry for ${targetUser?.name ?? 'this user'} from ${oldExpiry} to ${newExpiry}?`)) {
+      return;
+    }
+    try {
+      await firebaseService.updateUserProfile(uid, { membershipExpiryDate: editingExpiryValue } as Partial<User>);
+      setEditingExpiryUserId(null);
+      onUsersChange();
+    } catch (e) {
+      alert('Error updating expiry date. Check console.');
+      console.error(e);
+    }
+  };
+
+  const handleSavePaidOverride = async (uid: string) => {
+    const targetUser = users.find(u => u.id === uid);
+    const oldPaid = targetUser?.membershipPaidDate ? formatDate(targetUser.membershipPaidDate) : 'none';
+    const newPaid = formatDate(editingPaidValue);
+    if (!confirm(`Change paid date for ${targetUser?.name ?? 'this user'} from ${oldPaid} to ${newPaid}?`)) {
+      return;
+    }
+    try {
+      await firebaseService.updateUserProfile(uid, { membershipPaidDate: editingPaidValue } as Partial<User>);
+      setEditingPaidUserId(null);
+      onUsersChange();
+    } catch (e) {
+      alert('Error updating paid date. Check console.');
+      console.error(e);
     }
   };
 
@@ -438,9 +518,36 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                   <span className="text-xs text-neutral-500">Cancellations: <span className="text-neutral-300">{allBookings.filter(b => b.memberId === u.id && b.status === 'cancelled' && b.cancelledBy === u.id).length}</span></span>
                                 </div>
                                 {u.membershipPaidDate && (role === 'member' || role === 'admin') && (
-                                  <div className="flex gap-3 mt-1">
-                                    <span className="text-xs text-neutral-500">Paid: <span className="text-neutral-300">{formatDate(u.membershipPaidDate)}</span></span>
-                                    <span className="text-xs text-neutral-500">Expires: <span className={`${new Date(getMembershipExpiry(u.membershipPaidDate) + 'T00:00:00') < new Date() ? 'text-red-400' : 'text-neutral-300'}`}>{formatDate(getMembershipExpiry(u.membershipPaidDate))}</span></span>
+                                  <div className="flex gap-3 mt-1 items-center flex-wrap">
+                                    {editingPaidUserId !== u.id && (
+                                      <span className="text-xs text-neutral-500 flex items-center gap-1">Paid: <span className="text-neutral-300">{formatDate(u.membershipPaidDate)}</span>
+                                        <button onClick={() => { setEditingPaidUserId(u.id); setEditingPaidValue(u.membershipPaidDate!); }} className="text-neutral-500 hover:text-amber-400 transition-colors" title="Edit paid date">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                        </button>
+                                      </span>
+                                    )}
+                                    {editingPaidUserId === u.id && (
+                                      <span className="flex items-center gap-1">
+                                        <span className="text-xs text-neutral-500">Paid:</span>
+                                        <input type="date" value={editingPaidValue} onChange={e => setEditingPaidValue(e.target.value)} className="bg-neutral-900 border border-neutral-600 rounded px-1.5 py-0.5 text-xs text-white" />
+                                        <button onClick={() => handleSavePaidOverride(u.id)} className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-2 py-0.5 rounded">Save</button>
+                                        <button onClick={() => setEditingPaidUserId(null)} className="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-2 py-0.5 rounded">Cancel</button>
+                                      </span>
+                                    )}
+                                    {u.membershipExpiryDate && editingExpiryUserId !== u.id && (
+                                      <span className="text-xs text-neutral-500 flex items-center gap-1">Expires: <span className={`${new Date(u.membershipExpiryDate + 'T00:00:00') < new Date() ? 'text-red-400' : 'text-neutral-300'}`}>{formatDate(u.membershipExpiryDate)}</span>
+                                        <button onClick={() => { setEditingExpiryUserId(u.id); setEditingExpiryValue(u.membershipExpiryDate!); }} className="text-neutral-500 hover:text-amber-400 transition-colors" title="Edit expiry date">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                        </button>
+                                      </span>
+                                    )}
+                                    {editingExpiryUserId === u.id && (
+                                      <span className="flex items-center gap-1">
+                                        <input type="date" value={editingExpiryValue} onChange={e => setEditingExpiryValue(e.target.value)} className="bg-neutral-900 border border-neutral-600 rounded px-1.5 py-0.5 text-xs text-white" />
+                                        <button onClick={() => handleSaveExpiryOverride(u.id)} className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-2 py-0.5 rounded">Save</button>
+                                        <button onClick={() => setEditingExpiryUserId(null)} className="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-2 py-0.5 rounded">Cancel</button>
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                             </div>
