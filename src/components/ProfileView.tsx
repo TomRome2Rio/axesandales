@@ -76,14 +76,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ user, onNameChange }) 
                 ? <span className="text-xs text-green-400 bg-green-900/50 px-2 py-0.5 rounded-full border border-green-800">Paid Member</span>
                 : <span className="text-xs text-orange-400 bg-orange-900/50 px-2 py-0.5 rounded-full border border-orange-800">Unpaid Member</span>}
           </div>
-          {user.membershipExpiryDate && (user.isMember || user.isAdmin) && (
-            <div className="flex justify-between items-center">
-              <span className="text-neutral-400">Membership Expires:</span>
-              <span className={`font-medium ${new Date(user.membershipExpiryDate + 'T00:00:00') < new Date() ? 'text-red-400' : 'text-white'}`}>
-                {new Date(user.membershipExpiryDate + 'T00:00:00').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
-              </span>
-            </div>
-          )}
         </div>
         {!user.isMember && !user.isAdmin && (
           <div className="mt-4 bg-amber-900/20 border border-amber-700/40 rounded-lg p-4">
