@@ -66,6 +66,9 @@ export const MembershipView: React.FC = () => {
         <p className="text-neutral-400 text-sm">
           You do <span className="text-white font-medium">NOT</span> need a PayPal account — you can choose to pay with a credit or debit card instead.
         </p>
+        <p className="text-neutral-400 text-sm">
+          We would appreciate you paying as Friends &amp; Family, as it saves the club from fees.
+        </p>
         <div className="flex justify-center">
           <a
             href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=TZDSJZUZDTPSG"
