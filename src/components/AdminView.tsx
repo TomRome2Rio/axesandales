@@ -169,6 +169,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
     const newExpiry = new Date(base);
     newExpiry.setFullYear(newExpiry.getFullYear() + 1);
+    newExpiry.setDate(newExpiry.getDate() + 1);
 
     // Cap at max extension
     if (newExpiry > maxExpiry) {
