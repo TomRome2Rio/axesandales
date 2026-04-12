@@ -301,3 +301,144 @@ export const onBookingUpdated = onDocumentUpdated(
     }
   },
 );
+
+// =====================================================
+// MEMBERSHIP CONFIRMATION EMAILS
+// =====================================================
+
+interface MembershipAuditData {
+  id: string;
+  userId: string;
+  action: "activated" | "renewed" | "cancelled";
+  performedBy: string;
+  performedByName: string;
+  timestamp: number;
+}
+
+/**
+ * Format a date string (YYYY-MM-DD) for display.
+ * @param {string} dateStr - ISO date string.
+ * @return {string} Formatted date.
+ */
+function formatShortDate(dateStr: string): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/**
+ * Build HTML email for membership activation.
+ * @param {string} name - Member's display name.
+ * @param {string} expiryDate - Membership expiry date.
+ * @return {string} HTML email body.
+ */
+function buildMembershipActivatedEmail(
+  name: string,
+  expiryDate: string,
+): string {
+  return `
+    <p>Hi ${name},</p>
+    <p>Welcome to <strong>Axes &amp; Ales</strong>! 🎉</p>
+    <p>Your membership has been activated and is valid
+    until <strong>${formatShortDate(expiryDate)}</strong>.</p>
+    <p>As a member, you can now
+    <a href="https://www.axesandales.club/booking">
+    book tables in advance</a> for club nights.
+    We look forward to seeing you at the table!</p>
+    <p>Thank you for supporting the club.</p>
+    <p>— The Axes &amp; Ales Committee</p>
+  `;
+}
+
+/**
+ * Build HTML email for membership renewal.
+ * @param {string} name - Member's display name.
+ * @param {string} expiryDate - New membership expiry date.
+ * @return {string} HTML email body.
+ */
+function buildMembershipRenewedEmail(
+  name: string,
+  expiryDate: string,
+): string {
+  return `
+    <p>Hi ${name},</p>
+    <p>Thanks for renewing your
+    <strong>Axes &amp; Ales</strong> membership! 🙌</p>
+    <p>Your membership has been extended and is now valid
+    until <strong>${formatShortDate(expiryDate)}</strong>.</p>
+    <p>You can continue to
+    <a href="https://www.axesandales.club/booking">
+    book tables</a> for upcoming club nights.</p>
+    <p>Thank you for your continued support!</p>
+    <p>— The Axes &amp; Ales Committee</p>
+  `;
+}
+
+/**
+ * Triggered when a membership audit entry is created.
+ * Sends a confirmation email for activations and renewals.
+ */
+export const onMembershipAuditCreated = onDocumentCreated(
+  "membershipAudit/{entryId}",
+  async (event) => {
+    const data = event.data?.data();
+    const entry = data as MembershipAuditData | undefined;
+    if (!entry) return;
+
+    // Only send emails for activations and renewals
+    if (entry.action !== "activated" &&
+        entry.action !== "renewed") {
+      return;
+    }
+
+    // Look up the user's profile
+    const userDoc = await db
+      .collection("users").doc(entry.userId).get();
+    if (!userDoc.exists) {
+      logger.warn(
+        `No user profile for ${entry.userId}`,
+      );
+      return;
+    }
+
+    const userData = userDoc.data();
+    const email = userData?.email as string | undefined;
+    const name = userData?.name as string | undefined;
+    const expiryDate =
+      userData?.membershipExpiryDate as string | undefined;
+
+    if (!email || !name) {
+      logger.warn(
+        `Missing email/name for user ${entry.userId}`,
+      );
+      return;
+    }
+
+    if (!expiryDate) {
+      logger.warn(
+        `No expiry date for user ${entry.userId}, ` +
+        "skipping membership email",
+      );
+      return;
+    }
+
+    const html = entry.action === "activated" ?
+      buildMembershipActivatedEmail(name, expiryDate) :
+      buildMembershipRenewedEmail(name, expiryDate);
+
+    const subject = entry.action === "activated" ?
+      "Welcome to Axes & Ales — Membership Activated!" :
+      "Axes & Ales — Membership Renewed!";
+
+    await queueEmail(email, subject, html);
+
+    const id = event.params.entryId;
+    logger.info(
+      `Membership ${entry.action} email queued ` +
+      `for ${email} (${id})`,
+    );
+  },
+);

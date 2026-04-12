@@ -30,7 +30,7 @@ export const MembershipView: React.FC = () => {
           Annual Membership
         </h2>
         <p className="text-neutral-300 leading-relaxed">
-          Memberships are valid for each Financial Year, running from <span className="text-white font-medium">1 July</span> to <span className="text-white font-medium">30 June</span>.
+          Memberships are valid for <span className="text-white font-medium">12 months</span> from the date your payment is confirmed.
         </p>
         <div className="bg-neutral-900/50 rounded-lg p-4 border border-neutral-700 flex items-center justify-between">
           <span className="text-neutral-300">Regular Annual Membership</span>
