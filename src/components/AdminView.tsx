@@ -51,6 +51,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [renewedThisSession] = useState(() => new Set<string>());
   const [editingExpiryUserId, setEditingExpiryUserId] = useState<string | null>(null);
   const [editingExpiryValue, setEditingExpiryValue] = useState<string>('');
+  const [editingPaidUserId, setEditingPaidUserId] = useState<string | null>(null);
+  const [editingPaidValue, setEditingPaidValue] = useState<string>('');
 
   const handleDragStart = (e: React.DragEvent, id: string, type: 'table' | 'terrain') => {
     e.dataTransfer.setData(type, id);
@@ -295,6 +297,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   };
 
+  const handleSavePaidOverride = async (uid: string) => {
+    const targetUser = users.find(u => u.id === uid);
+    const oldPaid = targetUser?.membershipPaidDate ? formatDate(targetUser.membershipPaidDate) : 'none';
+    const newPaid = formatDate(editingPaidValue);
+    if (!confirm(`Change paid date for ${targetUser?.name ?? 'this user'} from ${oldPaid} to ${newPaid}?`)) {
+      return;
+    }
+    try {
+      await firebaseService.updateUserProfile(uid, { membershipPaidDate: editingPaidValue } as Partial<User>);
+      setEditingPaidUserId(null);
+      onUsersChange();
+    } catch (e) {
+      alert('Error updating paid date. Check console.');
+      console.error(e);
+    }
+  };
+
   const getUserRole = (u: User): 'pending' | 'member' | 'admin' => {
     if (u.isAdmin) return 'admin';
     if (u.isMember) return 'member';
@@ -499,8 +518,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
                                   <span className="text-xs text-neutral-500">Cancellations: <span className="text-neutral-300">{allBookings.filter(b => b.memberId === u.id && b.status === 'cancelled' && b.cancelledBy === u.id).length}</span></span>
                                 </div>
                                 {u.membershipPaidDate && (role === 'member' || role === 'admin') && (
-                                  <div className="flex gap-3 mt-1 items-center">
-                                    <span className="text-xs text-neutral-500">Paid: <span className="text-neutral-300">{formatDate(u.membershipPaidDate)}</span></span>
+                                  <div className="flex gap-3 mt-1 items-center flex-wrap">
+                                    {editingPaidUserId !== u.id && (
+                                      <span className="text-xs text-neutral-500 flex items-center gap-1">Paid: <span className="text-neutral-300">{formatDate(u.membershipPaidDate)}</span>
+                                        <button onClick={() => { setEditingPaidUserId(u.id); setEditingPaidValue(u.membershipPaidDate!); }} className="text-neutral-500 hover:text-amber-400 transition-colors" title="Edit paid date">
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                        </button>
+                                      </span>
+                                    )}
+                                    {editingPaidUserId === u.id && (
+                                      <span className="flex items-center gap-1">
+                                        <span className="text-xs text-neutral-500">Paid:</span>
+                                        <input type="date" value={editingPaidValue} onChange={e => setEditingPaidValue(e.target.value)} className="bg-neutral-900 border border-neutral-600 rounded px-1.5 py-0.5 text-xs text-white" />
+                                        <button onClick={() => handleSavePaidOverride(u.id)} className="text-xs bg-amber-600 hover:bg-amber-700 text-white px-2 py-0.5 rounded">Save</button>
+                                        <button onClick={() => setEditingPaidUserId(null)} className="text-xs bg-neutral-700 hover:bg-neutral-600 text-neutral-300 px-2 py-0.5 rounded">Cancel</button>
+                                      </span>
+                                    )}
                                     {u.membershipExpiryDate && editingExpiryUserId !== u.id && (
                                       <span className="text-xs text-neutral-500 flex items-center gap-1">Expires: <span className={`${new Date(u.membershipExpiryDate + 'T00:00:00') < new Date() ? 'text-red-400' : 'text-neutral-300'}`}>{formatDate(u.membershipExpiryDate)}</span>
                                         <button onClick={() => { setEditingExpiryUserId(u.id); setEditingExpiryValue(u.membershipExpiryDate!); }} className="text-neutral-500 hover:text-amber-400 transition-colors" title="Edit expiry date">
