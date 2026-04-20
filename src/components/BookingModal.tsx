@@ -130,9 +130,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       } else {
         setConfirmedBooking(newBooking);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to save booking:', err);
-      setError('Failed to save booking. Please try again.');
+      if (err instanceof Error && err.name === 'BookingConflictError') {
+        setError(err.message);
+      } else {
+        setError('Failed to save booking. Please try again.');
+      }
     }
   };
 

@@ -209,7 +209,37 @@ export const subscribeBookings = (callback: (bookings: Booking[]) => void): Unsu
     });
 };
 
+export class BookingConflictError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'BookingConflictError';
+    }
+}
+
 export const saveBooking = async (booking: Booking): Promise<void> => {
+    // Fresh availability check immediately before writing to minimise race window
+    const q = query(
+        collection(db, 'bookings'),
+        where('date', '==', booking.date),
+        where('status', '==', 'active')
+    );
+    const snapshot = await getDocs(q);
+    const conflicting = snapshot.docs.find(
+        d => d.id !== booking.id && d.data().tableId === booking.tableId
+    );
+    if (conflicting) {
+        const name = conflicting.data().memberName || 'another member';
+        throw new BookingConflictError(`That table has just been booked by ${name}. Please choose a different table.`);
+    }
+    if (booking.terrainBoxId) {
+        const terrainConflict = snapshot.docs.find(
+            d => d.id !== booking.id && d.data().terrainBoxId === booking.terrainBoxId
+        );
+        if (terrainConflict) {
+            const name = terrainConflict.data().memberName || 'another member';
+            throw new BookingConflictError(`That terrain set has just been reserved by ${name}. Please choose a different one.`);
+        }
+    }
     await setDoc(doc(db, 'bookings', booking.id), booking);
 };
 
