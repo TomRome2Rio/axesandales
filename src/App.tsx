@@ -240,7 +240,16 @@ setSelectedDate(selectableDates[0].value);
 const handleBookingSave = async (booking: Booking) => {
 const isNew = !editingBooking;
 const bookingWithStatus: Booking = { ...booking, status: booking.status || 'active' };
-await firebaseService.saveBooking(bookingWithStatus);
+try {
+  await firebaseService.saveBooking(bookingWithStatus);
+} catch (err: unknown) {
+  if (err instanceof Error && err.name === 'BookingConflictError') {
+    // Force resync so the UI reflects latest availability
+    const fresh = await firebaseService.fetchBookings();
+    setAllBookings(fresh);
+  }
+  throw err;
+}
 // Auto-add game system to the collection if it's new
 if (booking.gameSystem && !gameSystems.some(g => g.toLowerCase() === booking.gameSystem.toLowerCase())) {
   await firebaseService.addGameSystem(booking.gameSystem);

@@ -224,12 +224,13 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
         where('status', '==', 'active')
     );
     const snapshot = await getDocs(q);
-    const conflicting = snapshot.docs.find(
+    const conflicts: string[] = [];
+    const tableConflict = snapshot.docs.find(
         d => d.id !== booking.id && d.data().tableId === booking.tableId
     );
-    if (conflicting) {
-        const name = conflicting.data().memberName || 'another member';
-        throw new BookingConflictError(`That table has just been booked by ${name}. Please choose a different table.`);
+    if (tableConflict) {
+        const name = tableConflict.data().memberName || 'another member';
+        conflicts.push(`That table has just been booked by ${name}.`);
     }
     if (booking.terrainBoxId) {
         const terrainConflict = snapshot.docs.find(
@@ -237,10 +238,21 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
         );
         if (terrainConflict) {
             const name = terrainConflict.data().memberName || 'another member';
-            throw new BookingConflictError(`That terrain set has just been reserved by ${name}. Please choose a different one.`);
+            conflicts.push(`That terrain set has just been reserved by ${name}.`);
         }
     }
+    if (conflicts.length > 0) {
+        throw new BookingConflictError(conflicts.join(' ') + ' Please make another selection.');
+    }
     await setDoc(doc(db, 'bookings', booking.id), booking);
+};
+
+export const fetchBookings = async (): Promise<Booking[]> => {
+    const snapshot = await getDocs(collection(db, 'bookings'));
+    return snapshot.docs.map(d => {
+        const data = d.data();
+        return { ...data, id: d.id, taggedPlayerIds: data.taggedPlayerIds ?? [] } as Booking;
+    });
 };
 
 export const cancelBooking = async (id: string, cancelledByUserId: string): Promise<void> => {
