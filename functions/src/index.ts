@@ -1,4 +1,4 @@
-﻿import {setGlobalOptions} from "firebase-functions";
+import {setGlobalOptions} from "firebase-functions";
 import {
   onDocumentCreated,
   onDocumentUpdated,
@@ -264,8 +264,8 @@ export const onMembershipAuditCreated = onDocumentCreated(
       buildMembershipRenewedEmail(name, expiryDate);
 
     const subject = entry.action === "activated" ?
-      "Welcome to Axes & Ales — Membership Activated!" :
-      "Axes & Ales — Membership Renewed!";
+      "Welcome to Axes & Ales � Membership Activated!" :
+      "Axes & Ales � Membership Renewed!";
 
     await queueEmail(email, subject, html);
 

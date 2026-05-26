@@ -60,6 +60,10 @@ export function formatShortDate(dateStr: string): string {
 
 /**
  * Build HTML email for a booking confirmation.
+ * @param {BookingData} booking - The booking data.
+ * @param {string} tableName - Display name of the table.
+ * @param {string | null} terrainName - Terrain box name.
+ * @return {string} HTML email body.
  */
 export function buildConfirmationEmail(
   booking: BookingData,
@@ -84,6 +88,10 @@ export function buildConfirmationEmail(
 
 /**
  * Build HTML email for a booking modification.
+ * @param {BookingData} booking - The booking data.
+ * @param {string} tableName - Display name of the table.
+ * @param {string | null} terrainName - Terrain box name.
+ * @return {string} HTML email body.
  */
 export function buildModificationEmail(
   booking: BookingData,
@@ -108,6 +116,10 @@ export function buildModificationEmail(
 
 /**
  * Build HTML email for a booking cancellation.
+ * @param {BookingData} booking - The booking data.
+ * @param {string} tableName - Display name of the table.
+ * @param {string | null} terrainName - Terrain box name.
+ * @return {string} HTML email body.
  */
 export function buildCancellationEmail(
   booking: BookingData,
@@ -135,6 +147,9 @@ export function buildCancellationEmail(
 
 /**
  * Build HTML email for membership activation.
+ * @param {string} name - Member's display name.
+ * @param {string} expiryDate - Membership expiry date.
+ * @return {string} HTML email body.
  */
 export function buildMembershipActivatedEmail(
   name: string,
@@ -156,6 +171,9 @@ export function buildMembershipActivatedEmail(
 
 /**
  * Build HTML email for membership renewal.
+ * @param {string} name - Member's display name.
+ * @param {string} expiryDate - New membership expiry date.
+ * @return {string} HTML email body.
  */
 export function buildMembershipRenewedEmail(
   name: string,
@@ -181,6 +199,10 @@ export function buildMembershipRenewedEmail(
 
 /**
  * Build HTML email for an expiry reminder.
+ * @param {string} name - Member's display name.
+ * @param {string} expiryDate - Expiry date string.
+ * @param {number} daysUntil - Days until expiry.
+ * @return {string} HTML email body.
  */
 export function buildExpiryReminderEmail(
   name: string,
@@ -214,6 +236,8 @@ export function buildExpiryReminderEmail(
 
 /**
  * Build HTML email for an unpaid member reminder.
+ * @param {string} name - Member's display name.
+ * @return {string} HTML email body.
  */
 export function buildUnpaidReminderEmail(
   name: string,
