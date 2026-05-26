@@ -60,7 +60,7 @@ export const createPendingProfile = async (uid: string, email: string, name: str
         isMember: false,
         isAdmin: false,
     };
-    await setDoc(doc(db, 'users', uid), profile);
+    await setDoc(doc(db, 'users', uid), { ...profile, createdAt: new Date() });
     return { id: uid, ...profile };
 };
 
