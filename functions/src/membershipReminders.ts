@@ -17,6 +17,7 @@
  *   npx tsx functions/src/membershipReminders.ts
  */
 import * as admin from "firebase-admin";
+import {buildExpiryReminderEmail} from "./emailTemplates";
 
 const serviceAccount =
   process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -36,20 +37,6 @@ if (serviceAccount) {
 const db = admin.firestore();
 
 /**
- * Format a date string for display.
- * @param {string} dateStr - ISO date string.
- * @return {string} Formatted date.
- */
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
-/**
  * Get a YYYY-MM-DD date N days from today.
  * @param {number} days - Number of days ahead.
  * @return {string} ISO date string.
@@ -58,39 +45,6 @@ function getDateInDays(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() + days);
   return d.toISOString().split("T")[0];
-}
-
-/**
- * Build HTML email for an expiry reminder.
- * @param {string} name - Member's display name.
- * @param {string} expiryDate - Expiry date string.
- * @param {number} daysUntil - Days until expiry.
- * @return {string} HTML email body.
- */
-function buildReminderEmail(
-  name: string,
-  expiryDate: string,
-  daysUntil: number,
-): string {
-  const urgency = daysUntil <= 7 ?
-    "expires in just one week" :
-    "expires in one month";
-  return `
-    <p>Hi ${name},</p>
-    <p>Just a friendly heads-up — your
-    <strong>Axes &amp; Ales</strong> membership
-    ${urgency}, on
-    <strong>${formatDate(expiryDate)}</strong>.</p>
-    <p>To keep booking tables for club nights,
-    head to the
-    <a href="https://www.axesandales.club/membership">
-    Membership &amp; Payment</a> page to renew.</p>
-    <p>Once you've paid, the committee will update
-    your membership — no need to do anything
-    else.</p>
-    <p>See you at the table!</p>
-    <p>— The Axes &amp; Ales Committee</p>
-  `;
 }
 
 /**
@@ -160,7 +114,7 @@ async function sendReminders(): Promise<void> {
         "Axes & Ales — Membership Expires Next Week!" :
         "Axes & Ales — Membership Expires Next Month";
 
-      const html = buildReminderEmail(
+      const html = buildExpiryReminderEmail(
         name, targetDate, days,
       );
       await queueEmail(email, subject, html);
