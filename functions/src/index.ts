@@ -3,9 +3,8 @@ import {
   onDocumentCreated,
   onDocumentUpdated,
 } from "firebase-functions/v2/firestore";
-import {onSchedule} from "firebase-functions/v2/scheduler";
 import * as logger from "firebase-functions/logger";
-import {getFirestore, FieldValue} from "firebase-admin/firestore";
+import {getFirestore} from "firebase-admin/firestore";
 import {initializeApp} from "firebase-admin/app";
 import {
   BookingData,
@@ -14,7 +13,6 @@ import {
   buildCancellationEmail,
   buildMembershipActivatedEmail,
   buildMembershipRenewedEmail,
-  buildUnpaidReminderEmail,
   formatDate,
 } from "./emailTemplates";
 
@@ -275,86 +273,6 @@ export const onMembershipAuditCreated = onDocumentCreated(
     logger.info(
       `Membership ${entry.action} email queued ` +
       `for ${email} (${id})`,
-    );
-  },
-);
-
-// =====================================================
-// SCHEDULED: 2-WEEK UNPAID MEMBER REMINDERS
-// =====================================================
-
-/**
- * Runs daily. Finds users who created their account
- * ~14 days ago and are still not members, sends them
- * a payment reminder, and records the timestamp.
- */
-export const sendNewUserUnpaidReminders = onSchedule(
-  "every day 10:00",
-  async () => {
-    const now = new Date();
-    // Window: created 14–15 days ago (catches once daily)
-    const windowStart = new Date(now);
-    windowStart.setDate(windowStart.getDate() - 15);
-    const windowEnd = new Date(now);
-    windowEnd.setDate(windowEnd.getDate() - 14);
-
-    logger.info(
-      "Checking for unpaid users created between " +
-      `${windowStart.toISOString()} and ` +
-      `${windowEnd.toISOString()}...`,
-    );
-
-    const snapshot = await db
-      .collection("users")
-      .where("isMember", "==", false)
-      .where("createdAt", ">=", windowStart)
-      .where("createdAt", "<=", windowEnd)
-      .get();
-
-    if (snapshot.empty) {
-      logger.info("No matching users found.");
-      return;
-    }
-
-    let sent = 0;
-
-    for (const doc of snapshot.docs) {
-      const data = doc.data();
-      const email = data.email as string | undefined;
-      const name = data.name as string | undefined;
-
-      if (data.unpaidReminderLastSent) {
-        logger.info(
-          `Skipping user ${doc.id} — already reminded`,
-        );
-        continue;
-      }
-
-      if (!email || !name) {
-        logger.warn(
-          `Skipping user ${doc.id} — missing email/name`,
-        );
-        continue;
-      }
-
-      const subject =
-        "Axes & Ales \u2014 Membership Payment Reminder";
-      const html = buildUnpaidReminderEmail(name);
-      await queueEmail(email, subject, html);
-
-      await db.collection("users").doc(doc.id).update({
-        unpaidReminderLastSent:
-          FieldValue.serverTimestamp(),
-      });
-
-      logger.info(
-        `2-week unpaid reminder sent to ${email}`,
-      );
-      sent++;
-    }
-
-    logger.info(
-      `Done. ${sent} new-user reminder(s) sent.`,
     );
   },
 );
