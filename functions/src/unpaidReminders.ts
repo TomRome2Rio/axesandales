@@ -55,67 +55,11 @@ async function queueEmail(
  * @return {Promise<void>} Resolves when done.
  */
 async function sendUnpaidReminders(): Promise<void> {
-  console.log(
-    "Looking up users with isMember === false...",
-  );
-
-  const snapshot = await db
-    .collection("users")
-    .where("isMember", "==", false)
-    .get();
-
-  if (snapshot.empty) {
-    console.log("No unpaid members found.");
-    return;
-  }
-
-  console.log(
-    `Found ${snapshot.size} unpaid member(s).`,
-  );
-
-  let sent = 0;
-  let skipped = 0;
-
-  for (const doc of snapshot.docs) {
-    const data = doc.data();
-    const email = data.email as string | undefined;
-    const name = data.name as string | undefined;
-
-    if (data.unpaidReminderLastSent) {
-      console.log(
-        `  Skipping user ${doc.id} — already reminded.`,
-      );
-      skipped++;
-      continue;
-    }
-
-    if (!email || !name) {
-      console.warn(
-        `  Skipping user ${doc.id} — missing email or name.`,
-      );
-      skipped++;
-      continue;
-    }
-
-    const subject =
-      "Axes & Ales — Membership Payment Reminder";
-    const html = buildUnpaidReminderEmail(name);
-    await queueEmail(email, subject, html);
-
-    // Track when this reminder was last sent
-    await db.collection("users").doc(doc.id).update({
-      unpaidReminderLastSent:
-        admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    console.log(`  ✓ Reminder sent to ${email}`);
-    sent++;
-  }
-
-  console.log(
-    `\nDone. ${sent} reminder(s) sent, ` +
-    `${skipped} skipped.`,
-  );
+  // TEST: hardcoded send to me only
+  const html = buildUnpaidReminderEmail("Tom");
+  const subject = "Axes & Ales — Membership Reminder";
+  await queueEmail("tomhclare@gmail.com", subject, html);
+  console.log("✓ Test reminder sent to tomhclare@gmail.com");
 }
 
 sendUnpaidReminders()

@@ -106,7 +106,7 @@ async function sendNewUserReminders(): Promise<void> {
     }
 
     const subject =
-      "Axes & Ales — Membership Payment Reminder";
+      "Axes & Ales — Membership Reminder";
     const html = buildUnpaidReminderEmail(name);
     await queueEmail(email, subject, html);
 
