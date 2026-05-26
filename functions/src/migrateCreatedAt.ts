@@ -4,7 +4,8 @@
  * account's creationTime and writes it to Firestore.
  *
  * Usage:
- *   FIREBASE_PROJECT_ID=axes-and-ales-booking-site npx tsx functions/src/migrateCreatedAt.ts
+ *   FIREBASE_PROJECT_ID=axes-and-ales-booking-site
+ *   npx tsx functions/src/migrateCreatedAt.ts
  */
 import * as admin from "firebase-admin";
 
@@ -25,6 +26,10 @@ if (serviceAccount) {
 
 const db = admin.firestore();
 
+/**
+ * Backfill createdAt from Firebase Auth metadata.
+ * @return {Promise<void>} Resolves when done.
+ */
 async function migrate() {
   const snap = await db.collection("users").get();
   console.log(`Found ${snap.size} user(s).`);
@@ -50,7 +55,7 @@ async function migrate() {
 
   let updated = 0;
   let skipped = 0;
-  let failed = 0;
+  const failed = 0;
 
   const batch = db.batch();
   let batchCount = 0;

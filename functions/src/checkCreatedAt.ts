@@ -4,6 +4,10 @@ const projectId = process.env.FIREBASE_PROJECT_ID;
 admin.initializeApp({projectId});
 const db = admin.firestore();
 
+/**
+ * Check createdAt field status across all users.
+ * @return {Promise<void>} Resolves when done.
+ */
 async function main() {
   const snap = await db.collection("users").get();
   let earliest: Date | null = null;
