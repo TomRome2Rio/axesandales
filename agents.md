@@ -34,3 +34,8 @@
 - Use TypeScript strict mode.
 - Prefer `const` over `let`.
 - Use named exports from service modules.
+
+## Post-Change Checklist
+- **Always run linters after finishing code changes** before committing:
+  - Frontend: `npx tsc --noEmit` from the repo root.
+  - Functions: `cd functions && npm run lint` (ESLint with `require-jsdoc`, `max-len: 80`, `prefer-const` rules).
