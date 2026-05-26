@@ -23,6 +23,7 @@ jobs:
     outputs:
       rules-changed: ${{ steps.filter.outputs.rules }}
       functions-changed: ${{ steps.filter.outputs.functions }}
+      indexes-changed: ${{ steps.filter.outputs.indexes }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -31,6 +32,8 @@ jobs:
           filters: |
             rules:
               - 'firestore.rules'
+            indexes:
+              - 'firestore.indexes.json'
             functions:
               - 'functions/**'
 
@@ -44,6 +47,19 @@ jobs:
         uses: w9jds/firebase-action@v14.3.0
         with:
           args: deploy --only firestore:rules --project=${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+  deploy-firestore-indexes:
+    needs: detect-changes
+    if: needs.detect-changes.outputs.indexes-changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy Firestore indexes
+        uses: w9jds/firebase-action@v14.3.0
+        with:
+          args: deploy --only firestore:indexes --project=${{ secrets.VITE_FIREBASE_PROJECT_ID }}
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
@@ -75,7 +91,7 @@ jobs:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
   build-and-deploy:
-    needs: [detect-changes, deploy-firestore-rules, deploy-functions]
+    needs: [detect-changes, deploy-firestore-rules, deploy-firestore-indexes, deploy-functions]
     if: always() && !contains(needs.*.result, 'failure')
     runs-on: ubuntu-latest
     environment:
