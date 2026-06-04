@@ -60,7 +60,7 @@ export const Layout: React.FC<LayoutProps> = ({
         <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
           {/* Brand */}
           <div className="flex items-center gap-3">
-            <img src={`${import.meta.env.BASE_URL}images/logo.svg`} alt="Axes & Ales" className="h-8 w-8" />
+            <img src={`${import.meta.env.BASE_URL}images/A&A_Pride.svg`} alt="Axes & Ales" className="h-8 w-8" />
             <span className="font-extrabold tracking-wide">Axes & Ales</span>
           </div>
 
