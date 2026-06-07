@@ -4,15 +4,25 @@ export const SWAP_MEET_DATE = '2026-07-19';
 export const SWAP_MEET_TOTAL_STALLS = 30;
 export const SWAP_MEET_MAX_STALLS_PER_USER = 4;
 export const SWAP_MEET_STALL_PRICE = 10;
+const FREE_HALF_TABLE_PAYMENT_ID = 'system-free-club-member-half-table';
 
 export interface SwapMeetValidationResult {
   valid: boolean;
   error?: string;
 }
 
+export const isSwapMeetBookingActive = (
+  booking: SwapMeetBooking
+): boolean => booking.status !== 'cancelled';
+
+export const getActiveSwapMeetBookings = (
+  bookings: SwapMeetBooking[]
+): SwapMeetBooking[] => bookings.filter(isSwapMeetBookingActive);
+
 export const getSwapMeetBookedStallCount = (
   bookings: SwapMeetBooking[]
-): number => bookings.reduce((total, booking) => total + booking.stallCount, 0);
+): number => getActiveSwapMeetBookings(bookings)
+  .reduce((total, booking) => total + booking.stallCount, 0);
 
 export const getSwapMeetAvailableStallCount = (
   bookings: SwapMeetBooking[]
@@ -32,17 +42,17 @@ export const validateSwapMeetStallCount = (
   bookedStallCount: number
 ): SwapMeetValidationResult => {
   if (!Number.isInteger(requestedStallCount)) {
-    return { valid: false, error: 'Please choose a whole number of stalls.' };
+    return { valid: false, error: 'Please choose a whole number of half-tables.' };
   }
 
   if (requestedStallCount < 1) {
-    return { valid: false, error: 'Please book at least one stall.' };
+    return { valid: false, error: 'Please book at least one half-table.' };
   }
 
   if (requestedStallCount > SWAP_MEET_MAX_STALLS_PER_USER) {
     return {
       valid: false,
-      error: `Each user can book up to ${SWAP_MEET_MAX_STALLS_PER_USER} stalls.`,
+      error: `Each user can book up to ${SWAP_MEET_MAX_STALLS_PER_USER} half-tables.`,
     };
   }
 
@@ -51,7 +61,7 @@ export const validateSwapMeetStallCount = (
   if (requestedStallCount > availableAfterCurrentBooking) {
     return {
       valid: false,
-      error: `Only ${Math.max(0, availableAfterCurrentBooking)} stalls are still available.`,
+      error: `Only ${Math.max(0, availableAfterCurrentBooking)} half-tables are still available.`,
     };
   }
 
@@ -65,21 +75,28 @@ export const buildSwapMeetBooking = (
 ): SwapMeetBooking => {
   const now = Date.now();
   const isMember = user.isMember || user.isAdmin === true;
+  const isRebookingCancelled = existingBooking?.status === 'cancelled';
+  const amountOwed = calculateSwapMeetAmountOwed(stallCount, isMember);
+  const isAutomaticallyPaid = amountOwed === 0;
+  const paid = isAutomaticallyPaid || (isRebookingCancelled ? false : existingBooking?.paid ?? false);
+  const invoiced = isRebookingCancelled ? false : existingBooking?.invoiced ?? false;
 
   return {
     id: existingBooking?.id ?? user.id,
     userId: user.id,
     userName: user.name,
     stallCount,
+    status: paid ? 'confirmed' : 'pending',
     isMemberAtBooking: isMember,
-    amountOwed: calculateSwapMeetAmountOwed(stallCount, isMember),
-    paid: existingBooking?.paid ?? false,
-    invoiced: existingBooking?.invoiced ?? false,
+    amountOwed,
+    paid,
+    invoiced,
     createdAt: existingBooking?.createdAt ?? now,
     updatedAt: now,
-    ...(existingBooking?.paidAt !== undefined ? { paidAt: existingBooking.paidAt } : {}),
-    ...(existingBooking?.paidBy !== undefined ? { paidBy: existingBooking.paidBy } : {}),
-    ...(existingBooking?.invoicedAt !== undefined ? { invoicedAt: existingBooking.invoicedAt } : {}),
-    ...(existingBooking?.invoicedBy !== undefined ? { invoicedBy: existingBooking.invoicedBy } : {}),
+    ...(isAutomaticallyPaid ? { paidAt: now, paidBy: FREE_HALF_TABLE_PAYMENT_ID } : {}),
+    ...(!isAutomaticallyPaid && !isRebookingCancelled && existingBooking?.paidAt !== undefined ? { paidAt: existingBooking.paidAt } : {}),
+    ...(!isAutomaticallyPaid && !isRebookingCancelled && existingBooking?.paidBy !== undefined ? { paidBy: existingBooking.paidBy } : {}),
+    ...(!isRebookingCancelled && existingBooking?.invoicedAt !== undefined ? { invoicedAt: existingBooking.invoicedAt } : {}),
+    ...(!isRebookingCancelled && existingBooking?.invoicedBy !== undefined ? { invoicedBy: existingBooking.invoicedBy } : {}),
   };
 };

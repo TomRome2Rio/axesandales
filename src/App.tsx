@@ -314,6 +314,12 @@ const handleSwapMeetInvoiced = async (bookingId: string) => {
   await firebaseService.markSwapMeetBookingInvoiced(bookingId, effectiveUser);
   showToast('Swap meet booking marked as invoiced.');
 };
+const handleSwapMeetCancelled = async (bookingId: string) => {
+  const effectiveUser = user || (isDev ? DEV_USER : null);
+  if (!effectiveUser) return;
+  await firebaseService.cancelSwapMeetBooking(bookingId, effectiveUser);
+  showToast('Swap meet booking cancelled.');
+};
 
 // Function to refresh the user list from Firebase (passed to AdminView)
 const refreshUsers = async () => {
@@ -358,6 +364,7 @@ const paintingTableBookings: Booking[] = bookableDates.map(d => ({
   status: 'active' as const,
 }));
 const allBookingsWithPainting = [...activeBookings, ...paintingTableBookings];
+const canAccessSwapMeet = user?.isAdmin === true;
 
 if (loading) {
 return (
@@ -551,7 +558,7 @@ return (
 {currentPage === 'layout' && <ClubLayoutView />}
 {currentPage === 'stats' && <StatsView />}
 {currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} nextClubDate={bookableDates[0] || null} />}
-{currentPage === 'swapMeet' && (
+{currentPage === 'swapMeet' && canAccessSwapMeet && (
   <SwapMeetView
     user={user}
     users={users}
@@ -560,7 +567,22 @@ return (
     onBookStalls={handleSwapMeetBookingSave}
     onMarkPaid={handleSwapMeetPaid}
     onMarkInvoiced={handleSwapMeetInvoiced}
+    onCancelBooking={handleSwapMeetCancelled}
   />
+)}
+{currentPage === 'swapMeet' && !canAccessSwapMeet && (
+  <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 text-center">
+    <h1 className="text-2xl font-bold text-white">Admin Access Required</h1>
+    <p className="text-neutral-400 mt-2">Swap Meet bookings are currently open for admin UAT only.</p>
+    {!user && (
+      <button
+        onClick={() => setIsLoginModalOpen(true)}
+        className="mt-4 bg-amber-600 hover:bg-amber-500 text-black font-semibold px-4 py-2 rounded-lg"
+      >
+        Sign in
+      </button>
+    )}
+  </div>
 )}
     {currentPage === 'profile' && user && <ProfileView user={user} onNameChange={(newName) => setUser(prev => prev ? { ...prev, name: newName } : prev)} />}
 {currentPage === 'admin' && (user?.isAdmin || isDev) && (

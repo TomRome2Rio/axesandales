@@ -66,6 +66,7 @@ export interface SwapMeetBooking {
   userId: string;
   userName: string;
   stallCount: number;
+  status: 'pending' | 'confirmed' | 'cancelled';
   isMemberAtBooking: boolean;
   amountOwed: number;
   paid: boolean;
@@ -76,13 +77,15 @@ export interface SwapMeetBooking {
   paidBy?: string;
   invoicedAt?: number;
   invoicedBy?: string;
+  cancelledAt?: number;
+  cancelledBy?: string;
 }
 
 export interface SwapMeetAuditEntry {
   id: string;
   bookingId: string;
   userId: string;
-  action: 'booked' | 'marked_paid' | 'marked_invoiced';
+  action: 'booked' | 'marked_paid' | 'marked_invoiced' | 'cancelled';
   performedBy: string;
   performedByName: string;
   timestamp: number;
