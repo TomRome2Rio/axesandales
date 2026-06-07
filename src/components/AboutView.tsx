@@ -1,5 +1,6 @@
 import React from 'react';
 import { DISCORD_INVITE_URL } from '../constants';
+import { LocationView } from './LocationView';
 
 export const AboutView: React.FC = () => {
   return (
@@ -39,6 +40,8 @@ export const AboutView: React.FC = () => {
           So whether you’re here for a narrative campaign or practicing for the next tournament, Axes & Ales is a welcoming space to unwind, grab a drink, and play.
         </p>
       </div>
+
+      <LocationView />
 
       {/* Terrain image */}
       <div className="rounded-xl overflow-hidden border border-neutral-700 shadow-xl">
