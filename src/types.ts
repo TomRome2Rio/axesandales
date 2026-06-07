@@ -61,6 +61,38 @@ export interface MembershipAuditEntry {
   timestamp: number;
 }
 
+export interface SwapMeetBooking {
+  id: string;
+  userId: string;
+  userName: string;
+  stallCount: number;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  isMemberAtBooking: boolean;
+  amountOwed: number;
+  paid: boolean;
+  invoiced: boolean;
+  createdAt: number;
+  updatedAt: number;
+  paidAt?: number;
+  paidBy?: string;
+  invoicedAt?: number;
+  invoicedBy?: string;
+  cancelledAt?: number;
+  cancelledBy?: string;
+}
+
+export interface SwapMeetAuditEntry {
+  id: string;
+  bookingId: string;
+  userId: string;
+  action: 'booked' | 'marked_paid' | 'marked_invoiced' | 'cancelled';
+  performedBy: string;
+  performedByName: string;
+  timestamp: number;
+  previousStallCount?: number;
+  newStallCount?: number;
+}
+
 export interface DateStat {
   date: string;
   game: string;

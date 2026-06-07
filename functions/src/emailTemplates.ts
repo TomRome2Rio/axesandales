@@ -21,6 +21,23 @@ export interface BookingData {
   cancelledBy?: string;
 }
 
+export interface SwapMeetBookingData {
+  id: string;
+  userId: string;
+  userName: string;
+  stallCount: number;
+  status: "pending" | "confirmed" | "cancelled";
+  amountOwed: number;
+  paid: boolean;
+  invoiced: boolean;
+  createdAt: number;
+  updatedAt: number;
+  paidAt?: number;
+  paidBy?: string;
+  cancelledAt?: number;
+  cancelledBy?: string;
+}
+
 // =====================================================
 // Formatting helpers
 // =====================================================
@@ -52,6 +69,19 @@ export function formatShortDate(dateStr: string): string {
     month: "long",
     year: "numeric",
   });
+}
+
+/**
+ * Format a currency amount for swap meet emails.
+ * @param {number} amount - Amount in dollars.
+ * @return {string} Formatted amount.
+ */
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+    maximumFractionDigits: 0,
+  }).format(amount);
 }
 
 // =====================================================
@@ -138,6 +168,106 @@ export function buildCancellationEmail(
     <p>You can make a new booking any time on
     <a href="https://www.axesandales.club/booking">
     Axes &amp; Ales</a>.</p>
+  `;
+}
+
+// =====================================================
+// Swap meet emails
+// =====================================================
+
+/**
+ * Build HTML email for a swap meet booking.
+ * @param {SwapMeetBookingData} booking - The booking data.
+ * @return {string} HTML email body.
+ */
+export function buildSwapMeetBookingEmail(
+  booking: SwapMeetBookingData,
+): string {
+  return `
+    <p>Hi ${booking.userName},</p>
+    <p>Your swap meet half-table booking has been received.</p>
+    <p>
+      <strong>Sunday 19 July 2026</strong><br>
+      Half-tables booked: ${booking.stallCount}<br>
+      Amount owing: ${formatCurrency(booking.amountOwed)}<br>
+      Status: Pending confirmation
+    </p>
+    <p>The committee will confirm your booking once payment has
+    been marked as received.</p>
+    <p>Questions? Email
+    <a href="mailto:axesandalescommittee@gmail.com">
+    axesandalescommittee@gmail.com</a>.</p>
+  `;
+}
+
+/**
+ * Build HTML email for a confirmed swap meet booking.
+ * @param {SwapMeetBookingData} booking - The booking data.
+ * @return {string} HTML email body.
+ */
+export function buildSwapMeetConfirmedEmail(
+  booking: SwapMeetBookingData,
+): string {
+  return `
+    <p>Hi ${booking.userName},</p>
+    <p>Your swap meet booking has been confirmed.</p>
+    <p>
+      <strong>Sunday 19 July 2026</strong><br>
+      Half-tables booked: ${booking.stallCount}<br>
+      Amount paid: ${formatCurrency(booking.amountOwed)}
+    </p>
+    <p>Thanks for supporting Axes &amp; Ales.</p>
+  `;
+}
+
+/**
+ * Build HTML email for a cancelled swap meet booking.
+ * @param {SwapMeetBookingData} booking - The booking data.
+ * @return {string} HTML email body.
+ */
+export function buildSwapMeetCancelledEmail(
+  booking: SwapMeetBookingData,
+): string {
+  const refundNote = booking.paid ?
+    `<p>This booking had been marked as paid. Please email
+    <a href="mailto:axesandalescommittee@gmail.com">
+    axesandalescommittee@gmail.com</a> to arrange a refund.</p>` :
+    "";
+  return `
+    <p>Hi ${booking.userName},</p>
+    <p>Your swap meet booking has been cancelled.</p>
+    <p>
+      <strong>Sunday 19 July 2026</strong><br>
+      Half-tables cancelled: ${booking.stallCount}<br>
+      Amount: ${formatCurrency(booking.amountOwed)}
+    </p>
+    ${refundNote}
+  `;
+}
+
+/**
+ * Build HTML email alerting the committee to a cancellation.
+ * @param {SwapMeetBookingData} booking - The booking data.
+ * @param {string} userEmail - User email address.
+ * @return {string} HTML email body.
+ */
+export function buildSwapMeetCommitteeCancelledEmail(
+  booking: SwapMeetBookingData,
+  userEmail: string,
+): string {
+  const refundNote = booking.paid ?
+    "<p><strong>Refund follow-up required.</strong></p>" :
+    "";
+  return `
+    <p>A swap meet booking has been cancelled.</p>
+    <p>
+      User: ${booking.userName}<br>
+      Email: ${userEmail}<br>
+      Half-tables cancelled: ${booking.stallCount}<br>
+      Amount: ${formatCurrency(booking.amountOwed)}<br>
+      Paid: ${booking.paid ? "Yes" : "No"}
+    </p>
+    ${refundNote}
   `;
 }
 

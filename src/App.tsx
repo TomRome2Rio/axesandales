@@ -6,19 +6,19 @@ import { StatsView } from './components/StatsView';
 import { AdminView } from './components/AdminView';
 import { ProfileView } from './components/ProfileView';
 import { AboutView } from './components/AboutView';
-import { LocationView } from './components/LocationView';
 import { MembershipView } from './components/MembershipView';
 import { ClubLayoutView } from './components/ClubLayoutView';
 import { WelcomeView } from './components/WelcomeView';
 import { EventsView } from './components/EventsView';
+import { SwapMeetView } from './components/SwapMeetView';
 import { auth } from './firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import * as firebaseService from './services/firebaseService';
 import { getSelectableDates, getBookableDates } from './constants';
 import { canModifyBooking } from './services/bookingService';
-import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent } from './types';
+import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeetBooking } from './types';
 
-type PageKey = 'home' | 'about' | 'location' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events';
+type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events' | 'swapMeet';
 
 const DEV_USER: User = {
   id: 'dev-local',
@@ -37,7 +37,7 @@ const PATH_TO_PAGE: Record<string, PageKey> = {
   '/': 'about',
   '/booking': 'home',
   '/about': 'about',
-  '/location': 'location',
+  '/location': 'about',
   '/membership': 'membership',
   '/layout': 'layout',
   '/stats': 'stats',
@@ -45,12 +45,12 @@ const PATH_TO_PAGE: Record<string, PageKey> = {
   '/admin': 'admin',
   '/welcome': 'welcome',
   '/events': 'events',
+  '/swap-meet': 'swapMeet',
 };
 
 const PAGE_TO_PATH: Record<PageKey, string> = {
   home: '/booking',
   about: '/about',
-  location: '/location',
   membership: '/membership',
   layout: '/layout',
   stats: '/stats',
@@ -58,6 +58,7 @@ const PAGE_TO_PATH: Record<PageKey, string> = {
   admin: '/admin',
   welcome: '/welcome',
   events: '/events',
+  swapMeet: '/swap-meet',
 };
 
 const getPageFromUrl = (): PageKey => {
@@ -84,6 +85,7 @@ const [specialEventDates, setSpecialEventDates] = useState<string[]>([]);
 const [gameSystems, setGameSystems] = useState<string[]>([]);
 const [events, setEvents] = useState<ClubEvent[]>([]);
 const [eventTags, setEventTags] = useState<string[]>([]);
+const [swapMeetBookings, setSwapMeetBookings] = useState<SwapMeetBooking[]>([]);
 
 const selectableDates = getSelectableDates(specialEventDates, activeBookings, cancelledDates);
 const [selectedDate, setSelectedDate] = useState(selectableDates[0]?.value || new Date().toISOString().split('T')[0]);
@@ -172,6 +174,7 @@ const unsubSchedule = firebaseService.subscribeScheduleConfig((cancelled, specia
 const unsubGameSystems = firebaseService.subscribeGameSystems(setGameSystems);
 const unsubEvents = firebaseService.subscribeEvents(setEvents);
 const unsubEventTags = firebaseService.subscribeEventTags(setEventTags);
+const unsubSwapMeetBookings = firebaseService.subscribeSwapMeetBookings(setSwapMeetBookings);
 const unsubUsers = firebaseService.subscribeUsers((allUsers) => {
     setUsers(allUsers);
     // Keep current user profile in sync with real-time updates
@@ -227,6 +230,7 @@ return () => {
     unsubGameSystems();
     unsubEvents();
     unsubEventTags();
+    unsubSwapMeetBookings();
     unsubUsers();
 };
 }, []);
@@ -289,6 +293,33 @@ const handleTablesUpdate = async (updatedTables: Table[]) => { await firebaseSer
 const handleTerrainUpdate = async (updatedTerrain: TerrainBox[]) => { await firebaseService.saveTerrainBoxesToDb(updatedTerrain); };
 const handleCancelledDatesUpdate = async (dates: string[]) => { await firebaseService.saveCancelledDatesToDb(dates); };
 const handleSpecialEventDatesUpdate = async (dates: string[]) => { await firebaseService.saveSpecialEventDatesToDb(dates); };
+const handleSwapMeetBookingSave = async (stallCount: number) => {
+  const effectiveUser = user || (isDev ? DEV_USER : null);
+  if (!effectiveUser) {
+    setIsLoginModalOpen(true);
+    return;
+  }
+  await firebaseService.saveSwapMeetBooking(effectiveUser, stallCount);
+  showToast('Swap meet booking saved!');
+};
+const handleSwapMeetPaid = async (bookingId: string) => {
+  const effectiveUser = user || (isDev ? DEV_USER : null);
+  if (!effectiveUser?.isAdmin) return;
+  await firebaseService.markSwapMeetBookingPaid(bookingId, effectiveUser);
+  showToast('Swap meet booking marked as paid.');
+};
+const handleSwapMeetInvoiced = async (bookingId: string) => {
+  const effectiveUser = user || (isDev ? DEV_USER : null);
+  if (!effectiveUser?.isAdmin) return;
+  await firebaseService.markSwapMeetBookingInvoiced(bookingId, effectiveUser);
+  showToast('Swap meet booking marked as invoiced.');
+};
+const handleSwapMeetCancelled = async (bookingId: string) => {
+  const effectiveUser = user || (isDev ? DEV_USER : null);
+  if (!effectiveUser) return;
+  await firebaseService.cancelSwapMeetBooking(bookingId, effectiveUser);
+  showToast('Swap meet booking cancelled.');
+};
 
 // Function to refresh the user list from Firebase (passed to AdminView)
 const refreshUsers = async () => {
@@ -333,6 +364,7 @@ const paintingTableBookings: Booking[] = bookableDates.map(d => ({
   status: 'active' as const,
 }));
 const allBookingsWithPainting = [...activeBookings, ...paintingTableBookings];
+const canAccessSwapMeet = user?.isAdmin === true;
 
 if (loading) {
 return (
@@ -521,12 +553,37 @@ return (
 <Layout user={user} onLogin={() => setIsLoginModalOpen(true)} onLogout={handleLogout} currentPage={currentPage} onNavigate={navigateTo}>
 {currentPage === 'home' && renderDashboard()}
 {currentPage === 'about' && <AboutView />}
-{currentPage === 'location' && <LocationView />}
 {currentPage === 'welcome' && <WelcomeView onNavigate={navigateTo} />}
 {currentPage === 'membership' && <MembershipView />}
 {currentPage === 'layout' && <ClubLayoutView />}
 {currentPage === 'stats' && <StatsView />}
 {currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} nextClubDate={bookableDates[0] || null} />}
+{currentPage === 'swapMeet' && canAccessSwapMeet && (
+  <SwapMeetView
+    user={user}
+    users={users}
+    bookings={swapMeetBookings}
+    onLogin={() => setIsLoginModalOpen(true)}
+    onBookStalls={handleSwapMeetBookingSave}
+    onMarkPaid={handleSwapMeetPaid}
+    onMarkInvoiced={handleSwapMeetInvoiced}
+    onCancelBooking={handleSwapMeetCancelled}
+  />
+)}
+{currentPage === 'swapMeet' && !canAccessSwapMeet && (
+  <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 text-center">
+    <h1 className="text-2xl font-bold text-white">Admin Access Required</h1>
+    <p className="text-neutral-400 mt-2">Swap Meet bookings are currently open for admin UAT only.</p>
+    {!user && (
+      <button
+        onClick={() => setIsLoginModalOpen(true)}
+        className="mt-4 bg-amber-600 hover:bg-amber-500 text-black font-semibold px-4 py-2 rounded-lg"
+      >
+        Sign in
+      </button>
+    )}
+  </div>
+)}
     {currentPage === 'profile' && user && <ProfileView user={user} onNameChange={(newName) => setUser(prev => prev ? { ...prev, name: newName } : prev)} />}
 {currentPage === 'admin' && (user?.isAdmin || isDev) && (
 <AdminView

@@ -20,13 +20,31 @@ import {
     where,
     orderBy,
     Unsubscribe,
-    writeBatch
+    writeBatch,
+    runTransaction
 } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
-import { User, Booking, Table, TerrainBox, MembershipAuditEntry, ClubEvent } from '../types';
+import {
+    User,
+    Booking,
+    Table,
+    TerrainBox,
+    MembershipAuditEntry,
+    ClubEvent,
+    SwapMeetBooking,
+    SwapMeetAuditEntry,
+} from '../types';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
+import {
+    buildSwapMeetBooking,
+    getSwapMeetBookedStallCount,
+    isSwapMeetBookingActive,
+    SWAP_MEET_TOTAL_STALLS,
+    validateSwapMeetStallCount,
+} from './swapMeetService';
 
 const googleProvider = new GoogleAuthProvider();
+const isLocalDev = import.meta.env.DEV;
 
 // Send a password reset email
 export const resetPassword = async (email: string): Promise<void> => {
@@ -188,6 +206,286 @@ export const subscribeMembershipAudit = (
     }, (error) => {
         console.error('Error subscribing to membership audit:', error);
         callback([]);
+    });
+};
+
+// =====================================================
+// SWAP MEET
+// =====================================================
+
+const SWAP_MEET_STATE_DOC_ID = '2026-07-19';
+let localSwapMeetBookings: SwapMeetBooking[] = [];
+const localSwapMeetSubscribers = new Set<(bookings: SwapMeetBooking[]) => void>();
+
+const notifyLocalSwapMeetSubscribers = () => {
+    const bookings = [...localSwapMeetBookings]
+        .sort((a, b) => a.userName.localeCompare(b.userName, undefined, { sensitivity: 'base' }));
+    localSwapMeetSubscribers.forEach(callback => callback(bookings));
+};
+
+export const subscribeSwapMeetBookings = (
+    callback: (bookings: SwapMeetBooking[]) => void
+): Unsubscribe => {
+    if (isLocalDev) {
+        localSwapMeetSubscribers.add(callback);
+        callback([...localSwapMeetBookings]);
+        return () => {
+            localSwapMeetSubscribers.delete(callback);
+        };
+    }
+
+    const q = query(collection(db, 'swapMeetBookings'), orderBy('userName', 'asc'));
+    return onSnapshot(q, (snapshot) => {
+        const bookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as SwapMeetBooking));
+        callback(bookings);
+    }, (error) => {
+        console.error('Error subscribing to swap meet bookings:', error);
+        callback([]);
+    });
+};
+
+export const saveSwapMeetBooking = async (
+    user: User,
+    stallCount: number
+): Promise<void> => {
+    if (isLocalDev) {
+        const existingBooking = localSwapMeetBookings.find(booking => booking.userId === user.id) ?? null;
+        const previousStallCount = existingBooking && isSwapMeetBookingActive(existingBooking)
+            ? existingBooking.stallCount
+            : 0;
+        const bookedStallCount = getSwapMeetBookedStallCount(localSwapMeetBookings);
+        const validation = validateSwapMeetStallCount(
+            stallCount,
+            previousStallCount,
+            bookedStallCount
+        );
+
+        if (!validation.valid) {
+            throw new Error(validation.error);
+        }
+
+        const booking = buildSwapMeetBooking(user, stallCount, existingBooking);
+        localSwapMeetBookings = [
+            ...localSwapMeetBookings.filter(item => item.userId !== user.id),
+            booking,
+        ];
+        notifyLocalSwapMeetSubscribers();
+        return;
+    }
+
+    const bookingRef = doc(db, 'swapMeetBookings', user.id);
+    const stateRef = doc(db, 'swapMeetState', SWAP_MEET_STATE_DOC_ID);
+    const auditRef = doc(collection(db, 'swapMeetAudit'));
+
+    await runTransaction(db, async (transaction) => {
+        const [bookingSnap, stateSnap] = await Promise.all([
+            transaction.get(bookingRef),
+            transaction.get(stateRef),
+        ]);
+        const existingBooking = bookingSnap.exists()
+            ? bookingSnap.data() as SwapMeetBooking
+            : null;
+        const previousStallCount = existingBooking && isSwapMeetBookingActive(existingBooking)
+            ? existingBooking.stallCount
+            : 0;
+        const bookedStallCount = stateSnap.exists()
+            ? Number(stateSnap.data().bookedStallCount ?? 0)
+            : 0;
+        const validation = validateSwapMeetStallCount(
+            stallCount,
+            previousStallCount,
+            bookedStallCount
+        );
+
+        if (!validation.valid) {
+            throw new Error(validation.error);
+        }
+
+        const booking = buildSwapMeetBooking(user, stallCount, existingBooking);
+        const nextBookedStallCount = bookedStallCount - previousStallCount + stallCount;
+        if (nextBookedStallCount > SWAP_MEET_TOTAL_STALLS) {
+            throw new Error('The swap meet has just sold out. Please refresh and try again.');
+        }
+
+        transaction.set(bookingRef, booking);
+        transaction.set(stateRef, {
+            bookedStallCount: nextBookedStallCount,
+            updatedAt: Date.now(),
+        }, { merge: true });
+        transaction.set(auditRef, {
+            id: auditRef.id,
+            bookingId: booking.id,
+            userId: user.id,
+            action: 'booked',
+            performedBy: user.id,
+            performedByName: user.name,
+            timestamp: Date.now(),
+            previousStallCount,
+            newStallCount: stallCount,
+        } satisfies SwapMeetAuditEntry);
+    });
+};
+
+export const markSwapMeetBookingPaid = async (
+    bookingId: string,
+    adminUser: User
+): Promise<void> => {
+    if (isLocalDev) {
+        const now = Date.now();
+        localSwapMeetBookings = localSwapMeetBookings.map(booking => (
+            booking.id === bookingId
+                ? {
+                    ...booking,
+                    paid: true,
+                    status: 'confirmed',
+                    updatedAt: now,
+                    paidAt: now,
+                    paidBy: adminUser.id,
+                }
+                : booking
+        ));
+        notifyLocalSwapMeetSubscribers();
+        return;
+    }
+
+    const bookingRef = doc(db, 'swapMeetBookings', bookingId);
+    const auditRef = doc(collection(db, 'swapMeetAudit'));
+    const now = Date.now();
+
+    await runTransaction(db, async (transaction) => {
+        const bookingSnap = await transaction.get(bookingRef);
+        if (!bookingSnap.exists()) {
+            throw new Error('Swap meet booking not found.');
+        }
+        const booking = bookingSnap.data() as SwapMeetBooking;
+        transaction.update(bookingRef, {
+            paid: true,
+            status: 'confirmed',
+            paidAt: now,
+            paidBy: adminUser.id,
+        });
+        transaction.set(auditRef, {
+            id: auditRef.id,
+            bookingId,
+            userId: booking.userId,
+            action: 'marked_paid',
+            performedBy: adminUser.id,
+            performedByName: adminUser.name,
+            timestamp: now,
+        } satisfies SwapMeetAuditEntry);
+    });
+};
+
+export const cancelSwapMeetBooking = async (
+    bookingId: string,
+    cancelledByUser: User
+): Promise<void> => {
+    if (isLocalDev) {
+        const now = Date.now();
+        localSwapMeetBookings = localSwapMeetBookings.map(booking => (
+            booking.id === bookingId
+                ? {
+                    ...booking,
+                    status: 'cancelled',
+                    updatedAt: now,
+                    cancelledAt: now,
+                    cancelledBy: cancelledByUser.id,
+                }
+                : booking
+        ));
+        notifyLocalSwapMeetSubscribers();
+        return;
+    }
+
+    const bookingRef = doc(db, 'swapMeetBookings', bookingId);
+    const stateRef = doc(db, 'swapMeetState', SWAP_MEET_STATE_DOC_ID);
+    const auditRef = doc(collection(db, 'swapMeetAudit'));
+    const now = Date.now();
+
+    await runTransaction(db, async (transaction) => {
+        const [bookingSnap, stateSnap] = await Promise.all([
+            transaction.get(bookingRef),
+            transaction.get(stateRef),
+        ]);
+        if (!bookingSnap.exists()) {
+            throw new Error('Swap meet booking not found.');
+        }
+        const booking = bookingSnap.data() as SwapMeetBooking;
+        if (!isSwapMeetBookingActive(booking)) {
+            return;
+        }
+        const bookedStallCount = stateSnap.exists()
+            ? Number(stateSnap.data().bookedStallCount ?? 0)
+            : 0;
+        transaction.update(bookingRef, {
+            status: 'cancelled',
+            updatedAt: now,
+            cancelledAt: now,
+            cancelledBy: cancelledByUser.id,
+        });
+        transaction.set(stateRef, {
+            bookedStallCount: Math.max(0, bookedStallCount - booking.stallCount),
+            updatedAt: now,
+        }, { merge: true });
+        transaction.set(auditRef, {
+            id: auditRef.id,
+            bookingId,
+            userId: booking.userId,
+            action: 'cancelled',
+            performedBy: cancelledByUser.id,
+            performedByName: cancelledByUser.name,
+            timestamp: now,
+            previousStallCount: booking.stallCount,
+            newStallCount: 0,
+        } satisfies SwapMeetAuditEntry);
+    });
+};
+
+export const markSwapMeetBookingInvoiced = async (
+    bookingId: string,
+    adminUser: User
+): Promise<void> => {
+    if (isLocalDev) {
+        const now = Date.now();
+        localSwapMeetBookings = localSwapMeetBookings.map(booking => (
+            booking.id === bookingId
+                ? {
+                    ...booking,
+                    invoiced: true,
+                    updatedAt: now,
+                    invoicedAt: now,
+                    invoicedBy: adminUser.id,
+                }
+                : booking
+        ));
+        notifyLocalSwapMeetSubscribers();
+        return;
+    }
+
+    const bookingRef = doc(db, 'swapMeetBookings', bookingId);
+    const auditRef = doc(collection(db, 'swapMeetAudit'));
+    const now = Date.now();
+
+    await runTransaction(db, async (transaction) => {
+        const bookingSnap = await transaction.get(bookingRef);
+        if (!bookingSnap.exists()) {
+            throw new Error('Swap meet booking not found.');
+        }
+        const booking = bookingSnap.data() as SwapMeetBooking;
+        transaction.update(bookingRef, {
+            invoiced: true,
+            invoicedAt: now,
+            invoicedBy: adminUser.id,
+        });
+        transaction.set(auditRef, {
+            id: auditRef.id,
+            bookingId,
+            userId: booking.userId,
+            action: 'marked_invoiced',
+            performedBy: adminUser.id,
+            performedByName: adminUser.name,
+            timestamp: now,
+        } satisfies SwapMeetAuditEntry);
     });
 };
 

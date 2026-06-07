@@ -13,7 +13,12 @@ import {
   buildCancellationEmail,
   buildMembershipActivatedEmail,
   buildMembershipRenewedEmail,
+  buildSwapMeetBookingEmail,
+  buildSwapMeetCancelledEmail,
+  buildSwapMeetCommitteeCancelledEmail,
+  buildSwapMeetConfirmedEmail,
   formatDate,
+  SwapMeetBookingData,
 } from "./emailTemplates";
 
 initializeApp();
@@ -274,5 +279,97 @@ export const onMembershipAuditCreated = onDocumentCreated(
       `Membership ${entry.action} email queued ` +
       `for ${email} (${id})`,
     );
+  },
+);
+
+// =====================================================
+// SWAP MEET EMAILS
+// =====================================================
+
+const COMMITTEE_EMAIL = "axesandalescommittee@gmail.com";
+
+/**
+ * Triggered when a swap meet booking is created.
+ * Sends a pending confirmation email to the user.
+ */
+export const onSwapMeetBookingCreated = onDocumentCreated(
+  "swapMeetBookings/{bookingId}",
+  async (event) => {
+    const data = event.data?.data();
+    const booking = data as SwapMeetBookingData | undefined;
+    if (!booking || booking.status === "cancelled") return;
+
+    const email = await getUserEmail(booking.userId);
+    if (!email) {
+      logger.warn(
+        `No email for swap meet user ${booking.userId}`,
+      );
+      return;
+    }
+
+    const subject = booking.paid ?
+      "Swap Meet Booking Confirmed" :
+      "Swap Meet Booking Received";
+    const html = booking.paid ?
+      buildSwapMeetConfirmedEmail(booking) :
+      buildSwapMeetBookingEmail(booking);
+    await queueEmail(email, subject, html);
+    logger.info(
+      `Swap meet booking email queued for ${email}`,
+    );
+  },
+);
+
+/**
+ * Triggered when a swap meet booking is updated.
+ * Sends confirmation and cancellation emails.
+ */
+export const onSwapMeetBookingUpdated = onDocumentUpdated(
+  "swapMeetBookings/{bookingId}",
+  async (event) => {
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+    const before = beforeData as SwapMeetBookingData | undefined;
+    const after = afterData as SwapMeetBookingData | undefined;
+    if (!before || !after) return;
+
+    const email = await getUserEmail(after.userId);
+    if (!email) {
+      logger.warn(
+        `No email for swap meet user ${after.userId}`,
+      );
+      return;
+    }
+
+    if (
+      before.status !== "cancelled" &&
+      after.status === "cancelled"
+    ) {
+      await queueEmail(
+        email,
+        "Swap Meet Booking Cancelled",
+        buildSwapMeetCancelledEmail(after),
+      );
+      await queueEmail(
+        COMMITTEE_EMAIL,
+        `Swap Meet Booking Cancelled - ${after.userName}`,
+        buildSwapMeetCommitteeCancelledEmail(after, email),
+      );
+      logger.info(
+        `Swap meet cancellation emails queued for ${email}`,
+      );
+      return;
+    }
+
+    if (!before.paid && after.paid) {
+      await queueEmail(
+        email,
+        "Swap Meet Booking Confirmed",
+        buildSwapMeetConfirmedEmail(after),
+      );
+      logger.info(
+        `Swap meet confirmation email queued for ${email}`,
+      );
+    }
   },
 );
