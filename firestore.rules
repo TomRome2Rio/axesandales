@@ -99,7 +99,7 @@ service cloud.firestore {
          request.resource.data.invoiced == resource.data.invoiced &&
          (validSwapMeetUserPaymentStatus() ||
           (request.resource.data.paid == resource.data.paid &&
-           request.resource.data.status in ['pending', 'cancelled']));
+           request.resource.data.status in ['pending', 'cancelled'])));
       allow delete: if isAdmin();
     }
 

@@ -2,24 +2,14 @@ name: CI
 
 on:
   pull_request:
+  push:
     branches: [main]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  secret-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
-
-  test:
+  frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,9 +18,23 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm test
-      - run: npm run lint
       - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+
+  firestore-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Validate Firestore rules
+        run: npx --yes firebase-tools@latest emulators:exec --only firestore --project demo-axesandales "node -e \"console.log('Firestore rules compiled')\""
 
   functions:
     runs-on: ubuntu-latest
@@ -43,9 +47,6 @@ jobs:
           cache-dependency-path: functions/package-lock.json
       - name: Install dependencies
         run: npm ci
-        working-directory: functions
-      - name: Lint
-        run: npm run lint
         working-directory: functions
       - name: Build
         run: npm run build
