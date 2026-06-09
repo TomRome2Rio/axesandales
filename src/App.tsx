@@ -66,8 +66,24 @@ const getPageFromUrl = (): PageKey => {
   return PATH_TO_PAGE[path] || 'about';
 };
 
+const DATE_QUERY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+const getBookingDateFromUrl = (): string | null => {
+  const path = window.location.pathname.replace(BASE_PATH, '') || '/';
+  if (PATH_TO_PAGE[path] !== 'home') return null;
+
+  const date = new URLSearchParams(window.location.search).get('date');
+  if (!date || !DATE_QUERY_PATTERN.test(date)) return null;
+
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date
+    ? date
+    : null;
+};
+
 const App: React.FC = () => {
 const [currentPage, setCurrentPage] = useState<PageKey>(getPageFromUrl);
+const [locationSearch, setLocationSearch] = useState(window.location.search);
 const [user, setUser] = useState<User | null>(null);
 const [loading, setLoading] = useState(true);
 
@@ -82,6 +98,7 @@ const [users, setUsers] = useState<User[]>([]);
 
 const [cancelledDates, setCancelledDates] = useState<string[]>([]);
 const [specialEventDates, setSpecialEventDates] = useState<string[]>([]);
+const [scheduleLoaded, setScheduleLoaded] = useState(false);
 const [gameSystems, setGameSystems] = useState<string[]>([]);
 const [events, setEvents] = useState<ClubEvent[]>([]);
 const [eventTags, setEventTags] = useState<string[]>([]);
@@ -98,6 +115,7 @@ const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
 // Toast state
 const [toast, setToast] = useState<{ message: string; key: number } | null>(null);
 const toastTimer = useRef<ReturnType<typeof setTimeout>>();
+const appliedLinkedBookingDate = useRef<string | null>(null);
 const showToast = useCallback((message: string) => {
   clearTimeout(toastTimer.current);
   setToast({ message, key: Date.now() });
@@ -108,13 +126,17 @@ const showToast = useCallback((message: string) => {
 const navigateTo = useCallback((page: PageKey) => {
   setCurrentPage(page);
   const newPath = BASE_PATH + PAGE_TO_PATH[page];
-  if (window.location.pathname !== newPath) {
+  if (window.location.pathname !== newPath || window.location.search) {
     window.history.pushState(null, '', newPath);
+    setLocationSearch('');
   }
 }, []);
 
 useEffect(() => {
-  const onPopState = () => setCurrentPage(getPageFromUrl());
+  const onPopState = () => {
+    setCurrentPage(getPageFromUrl());
+    setLocationSearch(window.location.search);
+  };
   window.addEventListener('popstate', onPopState);
   return () => window.removeEventListener('popstate', onPopState);
 }, []);
@@ -170,6 +192,7 @@ const unsubTerrain = firebaseService.subscribeTerrainBoxes(setTerrainBoxes);
 const unsubSchedule = firebaseService.subscribeScheduleConfig((cancelled, special) => {
     setCancelledDates(cancelled);
     setSpecialEventDates(special);
+    setScheduleLoaded(true);
 });
 const unsubGameSystems = firebaseService.subscribeGameSystems(setGameSystems);
 const unsubEvents = firebaseService.subscribeEvents(setEvents);
@@ -236,10 +259,26 @@ return () => {
 }, []);
 
 useEffect(() => {
+if (!scheduleLoaded) return;
+const linkedBookingDate = currentPage === 'home' ? getBookingDateFromUrl() : null;
+const linkedSelectableDate = linkedBookingDate
+  ? selectableDates.find(d => d.value === linkedBookingDate && !d.isCancelled)
+  : undefined;
+
+if (
+  linkedBookingDate &&
+  linkedSelectableDate &&
+  appliedLinkedBookingDate.current !== linkedBookingDate
+) {
+  appliedLinkedBookingDate.current = linkedBookingDate;
+  setSelectedDate(linkedBookingDate);
+  return;
+}
+
 if (!selectableDates.find(d => d.value === selectedDate) && selectableDates.length > 0) {
 setSelectedDate(selectableDates[0].value);
 }
-}, [selectableDates, selectedDate]);
+}, [currentPage, locationSearch, scheduleLoaded, selectableDates, selectedDate]);
 
 const handleBookingSave = async (booking: Booking) => {
 const isNew = !editingBooking;
@@ -364,7 +403,6 @@ const paintingTableBookings: Booking[] = bookableDates.map(d => ({
   status: 'active' as const,
 }));
 const allBookingsWithPainting = [...activeBookings, ...paintingTableBookings];
-const canAccessSwapMeet = user?.isAdmin === true;
 
 if (loading) {
 return (
@@ -558,7 +596,7 @@ return (
 {currentPage === 'layout' && <ClubLayoutView />}
 {currentPage === 'stats' && <StatsView />}
 {currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} nextClubDate={bookableDates[0] || null} />}
-{currentPage === 'swapMeet' && canAccessSwapMeet && (
+{currentPage === 'swapMeet' && (
   <SwapMeetView
     user={user}
     users={users}
@@ -569,20 +607,6 @@ return (
     onMarkInvoiced={handleSwapMeetInvoiced}
     onCancelBooking={handleSwapMeetCancelled}
   />
-)}
-{currentPage === 'swapMeet' && !canAccessSwapMeet && (
-  <div className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6 text-center">
-    <h1 className="text-2xl font-bold text-white">Admin Access Required</h1>
-    <p className="text-neutral-400 mt-2">Swap Meet bookings are currently open for admin UAT only.</p>
-    {!user && (
-      <button
-        onClick={() => setIsLoginModalOpen(true)}
-        className="mt-4 bg-amber-600 hover:bg-amber-500 text-black font-semibold px-4 py-2 rounded-lg"
-      >
-        Sign in
-      </button>
-    )}
-  </div>
 )}
     {currentPage === 'profile' && user && <ProfileView user={user} onNameChange={(newName) => setUser(prev => prev ? { ...prev, name: newName } : prev)} />}
 {currentPage === 'admin' && (user?.isAdmin || isDev) && (
