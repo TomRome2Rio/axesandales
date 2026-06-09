@@ -83,6 +83,7 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
   const [adminBusyId, setAdminBusyId] = useState<string | null>(null);
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const bookingLink = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/booking?date=${SWAP_MEET_DATE}`;
   const selectedAmountOwed = user
     ? calculateSwapMeetAmountOwed(selectedStallCount, user.isMember || user.isAdmin === true)
     : 0;
@@ -333,6 +334,20 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
             {message}
           </div>
         )}
+      </section>
+
+      <section className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <p className="text-neutral-200">
+            The club will also be open for games from 1pm to 6pm!
+          </p>
+          <a
+            href={bookingLink}
+            className="inline-flex items-center justify-center bg-amber-600 hover:bg-amber-500 text-black font-semibold px-4 py-2 rounded-lg"
+          >
+            Click here to book a table
+          </a>
+        </div>
       </section>
 
       {user?.isAdmin && (
