@@ -459,7 +459,17 @@ const renderExpiryWarningBanner = () => {
   );
 };
 
-const renderDashboard = () => (
+const renderDashboard = () => {
+const bookedTerrainIds = new Set(
+  bookingsForSelectedDate
+    .map(b => b.terrainBoxId)
+    .filter((terrainBoxId): terrainBoxId is string => Boolean(terrainBoxId))
+);
+const visibleTerrainBoxes = terrainBoxes.filter(tb =>
+  !tb.disabled || bookedTerrainIds.has(tb.id)
+);
+
+return (
 <div className="space-y-8">
 {renderPendingBanner()}
 {renderExpiryWarningBanner()}
@@ -545,9 +555,8 @@ Table Status
         ) : (
             <div className="space-y-3">
                 {Object.values(TerrainCategory).map(category => {
-                    const boxesInCategory = terrainBoxes.filter(tb => tb.category === category);
+                    const boxesInCategory = visibleTerrainBoxes.filter(tb => tb.category === category);
                     if (boxesInCategory.length === 0) return null;
-                    const bookedTerrainIds = new Set(bookingsForSelectedDate.filter(b => b.terrainBoxId).map(b => b.terrainBoxId));
                     const availableCount = boxesInCategory.filter(tb => !bookedTerrainIds.has(tb.id)).length;
                     const totalCount = boxesInCategory.length;
                     return (
@@ -581,10 +590,8 @@ Table Status
         )}
     </div>
 </div>
-
-  
-
-);
+  );
+};
 
 return (
 <>
