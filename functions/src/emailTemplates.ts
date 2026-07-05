@@ -94,6 +94,7 @@ export function formatCurrency(amount: number): string {
  * @param {BookingData} booking - The booking data.
  * @param {string} tableName - Display name of the table.
  * @param {string | null} terrainName - Terrain box name.
+ * @param { string | null } secondaryTerrainName - Secondary terrain box name.
  * @return {string} HTML email body.
  */
 export function buildConfirmationEmail(
@@ -124,6 +125,7 @@ export function buildConfirmationEmail(
  * @param {BookingData} booking - The booking data.
  * @param {string} tableName - Display name of the table.
  * @param {string | null} terrainName - Terrain box name.
+ * @param { string | null } secondaryTerrainName - Secondary terrain box name.
  * @return {string} HTML email body.
  */
 export function buildModificationEmail(
@@ -154,6 +156,7 @@ export function buildModificationEmail(
  * @param {BookingData} booking - The booking data.
  * @param {string} tableName - Display name of the table.
  * @param {string | null} terrainName - Terrain box name.
+ * @param { string | null } secondaryTerrainName - Secondary terrain box name.
  * @return {string} HTML email body.
  */
 export function buildCancellationEmail(
