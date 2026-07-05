@@ -8,6 +8,7 @@
     "dev": "vite",
     "build": "tsc && vite build && cp dist/index.html dist/404.html",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "report:terrain-boxes": "tsx src/scripts/exportTerrainBookings.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
