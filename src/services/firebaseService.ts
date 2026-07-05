@@ -498,7 +498,13 @@ export const subscribeBookings = (callback: (bookings: Booking[]) => void): Unsu
     return onSnapshot(q, (snapshot) => {
         const bookings = snapshot.docs.map(d => {
             const data = d.data();
-            return { ...data, id: d.id, taggedPlayerIds: data.taggedPlayerIds ?? [] } as Booking;
+            return {
+                ...data,
+                id: d.id,
+                terrainBoxId: data.terrainBoxId ?? null,
+                secondaryTerrainId: data.secondaryTerrainId ?? null,
+                taggedPlayerIds: data.taggedPlayerIds ?? []
+            } as Booking;
         });
         callback(bookings);
     }, (error) => {
@@ -539,6 +545,18 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
             conflicts.push(`That terrain set has just been reserved by ${name}.`);
         }
     }
+    if (booking.secondaryTerrainId) {
+        const secondaryTerrainBox = INITIAL_TERRAIN_BOXES.find(box => box.id === booking.secondaryTerrainId);
+        const secondaryTerrainCapacity = secondaryTerrainBox?.maxBookingsPerNight ?? 1;
+        if (secondaryTerrainCapacity > 1) {
+            const secondaryTerrainBookings = snapshot.docs.filter(
+                d => d.id !== booking.id && d.data().secondaryTerrainId === booking.secondaryTerrainId
+            );
+            if (secondaryTerrainBookings.length >= secondaryTerrainCapacity) {
+                conflicts.push('That terrain set is fully booked for this date.');
+            }
+        }
+    }
     if (conflicts.length > 0) {
         throw new BookingConflictError(conflicts.join(' ') + ' Please make another selection.');
     }
@@ -549,7 +567,13 @@ export const fetchBookings = async (): Promise<Booking[]> => {
     const snapshot = await getDocs(collection(db, 'bookings'));
     return snapshot.docs.map(d => {
         const data = d.data();
-        return { ...data, id: d.id, taggedPlayerIds: data.taggedPlayerIds ?? [] } as Booking;
+        return {
+            ...data,
+            id: d.id,
+            terrainBoxId: data.terrainBoxId ?? null,
+            secondaryTerrainId: data.secondaryTerrainId ?? null,
+            taggedPlayerIds: data.taggedPlayerIds ?? []
+        } as Booking;
     });
 };
 
@@ -645,6 +669,21 @@ export const initTerrainBoxesIfEmpty = async (): Promise<void> => {
         const snapshot = await getDocs(collection(db, 'terrainBoxes'));
         if (snapshot.empty) {
             await saveTerrainBoxesToDb(INITIAL_TERRAIN_BOXES);
+            return;
+        }
+
+        const existingBoxes = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as TerrainBox));
+        const missingDefaults = INITIAL_TERRAIN_BOXES.filter(defaultBox => !existingBoxes.some(box => box.id === defaultBox.id));
+        if (missingDefaults.length > 0) {
+            const mergedBoxes = [...existingBoxes, ...missingDefaults].sort((a, b) => {
+                const numA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
+                const numB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
+                const prefixA = a.id.replace(/\d/g, '');
+                const prefixB = b.id.replace(/\d/g, '');
+                if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
+                return numA - numB;
+            });
+            await saveTerrainBoxesToDb(mergedBoxes);
         }
     } catch (error) {
         console.error('Error initializing terrain boxes in Firestore:', error);

@@ -11,6 +11,7 @@ export interface BookingData {
   date: string;
   tableId: string;
   terrainBoxId?: string | null;
+  secondaryTerrainId?: string | null;
   memberName: string;
   memberId: string;
   gameSystem: string;
@@ -99,6 +100,7 @@ export function buildConfirmationEmail(
   booking: BookingData,
   tableName: string,
   terrainName: string | null,
+  secondaryTerrainName: string | null,
 ): string {
   return `
     <p>Hi ${booking.memberName},</p>
@@ -107,6 +109,7 @@ export function buildConfirmationEmail(
       <strong>${formatDate(booking.date)}</strong><br>
       Table: ${tableName}<br>
       Terrain: ${terrainName || "None"}<br>
+      Extra Terrain: ${secondaryTerrainName || "None"}<br>
       Game: ${booking.gameSystem}<br>
       Players: ${booking.playerCount}
     </p>
@@ -127,6 +130,7 @@ export function buildModificationEmail(
   booking: BookingData,
   tableName: string,
   terrainName: string | null,
+  secondaryTerrainName: string | null,
 ): string {
   return `
     <p>Hi ${booking.memberName},</p>
@@ -135,6 +139,7 @@ export function buildModificationEmail(
       <strong>${formatDate(booking.date)}</strong><br>
       Table: ${tableName}<br>
       Terrain: ${terrainName || "None"}<br>
+      Extra Terrain: ${secondaryTerrainName || "None"}<br>
       Game: ${booking.gameSystem}<br>
       Players: ${booking.playerCount}
     </p>
@@ -155,6 +160,7 @@ export function buildCancellationEmail(
   booking: BookingData,
   tableName: string,
   terrainName: string | null,
+  secondaryTerrainName: string | null,
 ): string {
   return `
     <p>Hi ${booking.memberName},</p>
@@ -163,6 +169,7 @@ export function buildCancellationEmail(
       ${formatDate(booking.date)}<br>
       Table: ${tableName}<br>
       Terrain: ${terrainName || "None"}<br>
+      Extra Terrain: ${secondaryTerrainName || "None"}<br>
       Game: ${booking.gameSystem}
     </p>
     <p>You can make a new booking any time on

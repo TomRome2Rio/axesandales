@@ -40,6 +40,7 @@ export const INITIAL_TERRAIN_BOXES: TerrainBox[] = [
   { id: 'AOS-2', category: TerrainCategory.AOS, name: 'AoS Box 2', imageUrl: `${BASE_IMG}/AoS_02.jpg` },
   { id: '40K-1', category: TerrainCategory.WARHAMMER_40K, name: '40k Comp Box 1', imageUrl: `${BASE_IMG}/40kComp1.jpg` },
   { id: '40K-2', category: TerrainCategory.WARHAMMER_40K, name: '40k Comp Box 2', imageUrl: `${BASE_IMG}/40kComp2.jpg` },
+  { id: '40K-FOOTPRINTS', category: TerrainCategory.WARHAMMER_40K, name: '40k Footprints', imageUrl: `${BASE_IMG}/40k_footprint.jpg`, maxBookingsPerNight: 5, allowAsSecondItem: true },
   { id: 'HILLS-1', category: TerrainCategory.FANTASY, name: 'Hills Box 1', imageUrl: `${BASE_IMG}/Hills.jpg` },
   { id: 'POSTAPOC-1', category: TerrainCategory.SCIFI, name: 'Post-Apoc Box 1', imageUrl: `${BASE_IMG}/PostApoc1.jpg` },
 ];

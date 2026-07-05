@@ -79,6 +79,22 @@ async function getTerrainName(
 }
 
 /**
+ * Look up a secondary terrain item name.
+ * @param {string} terrainItemId - Terrain box document ID.
+ * @return {Promise<string>} The terrain item name.
+ */
+async function getSecondaryTerrainName(
+  terrainItemId: string,
+): Promise<string> {
+  const terrainDoc = await db
+    .collection("terrainBoxes").doc(terrainItemId).get();
+  if (terrainDoc.exists) {
+    return terrainDoc.data()?.name || terrainItemId;
+  }
+  return terrainItemId;
+}
+
+/**
  * Queue an email via the mail collection.
  * @param {string} to - Recipient email address.
  * @param {string} subject - Email subject line.
@@ -121,9 +137,11 @@ export const onBookingCreated = onDocumentCreated(
     const tableName = await getTableName(booking.tableId);
     const terrainName = booking.terrainBoxId ?
       await getTerrainName(booking.terrainBoxId) : null;
+    const secondaryTerrainName = booking.secondaryTerrainId ?
+      await getSecondaryTerrainName(booking.secondaryTerrainId) : null;
 
     const html = buildConfirmationEmail(
-      booking, tableName, terrainName,
+      booking, tableName, terrainName, secondaryTerrainName,
     );
     const subject =
       `Booking Confirmed - ${formatDate(booking.date)}`;
@@ -167,8 +185,10 @@ export const onBookingUpdated = onDocumentUpdated(
     ) {
       const terrainName = after.terrainBoxId ?
         await getTerrainName(after.terrainBoxId) : null;
+      const secondaryTerrainName = after.secondaryTerrainId ?
+        await getSecondaryTerrainName(after.secondaryTerrainId) : null;
       const html = buildCancellationEmail(
-        after, tableName, terrainName,
+        after, tableName, terrainName, secondaryTerrainName,
       );
       const subject =
         `Booking Cancelled - ${formatDate(after.date)}`;
@@ -184,14 +204,17 @@ export const onBookingUpdated = onDocumentUpdated(
       before.date !== after.date ||
       before.tableId !== after.tableId ||
       before.terrainBoxId !== after.terrainBoxId ||
+      before.secondaryTerrainId !== after.secondaryTerrainId ||
       before.gameSystem !== after.gameSystem ||
       before.playerCount !== after.playerCount;
 
     if (changed && after.status === "active") {
       const terrainName = after.terrainBoxId ?
         await getTerrainName(after.terrainBoxId) : null;
+      const secondaryTerrainName = after.secondaryTerrainId ?
+        await getSecondaryTerrainName(after.secondaryTerrainId) : null;
       const html = buildModificationEmail(
-        after, tableName, terrainName,
+        after, tableName, terrainName, secondaryTerrainName,
       );
       const subject =
         `Booking Updated - ${formatDate(after.date)}`;

@@ -15,7 +15,7 @@ import { auth } from './firebaseConfig';
 import { onAuthStateChanged } from 'firebase/auth';
 import * as firebaseService from './services/firebaseService';
 import { getSelectableDates, getBookableDates } from './constants';
-import { canModifyBooking } from './services/bookingService';
+import { canModifyBooking, getSecondaryTerrainStatus } from './services/bookingService';
 import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeetBooking } from './types';
 
 type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events' | 'swapMeet';
@@ -465,8 +465,9 @@ const bookedTerrainIds = new Set(
     .map(b => b.terrainBoxId)
     .filter((terrainBoxId): terrainBoxId is string => Boolean(terrainBoxId))
 );
-const visibleTerrainBoxes = terrainBoxes.filter(tb =>
-  !tb.disabled || bookedTerrainIds.has(tb.id)
+const secondaryTerrainBoxes = terrainBoxes.filter(tb => !tb.disabled && ((tb.maxBookingsPerNight ?? 1) > 1 || tb.allowAsSecondItem));
+const regularTerrainBoxes = terrainBoxes.filter(tb =>
+  (tb.maxBookingsPerNight ?? 1) <= 1 && (!tb.disabled || bookedTerrainIds.has(tb.id))
 );
 
 return (
@@ -555,7 +556,7 @@ Table Status
         ) : (
             <div className="space-y-3">
                 {Object.values(TerrainCategory).map(category => {
-                    const boxesInCategory = visibleTerrainBoxes.filter(tb => tb.category === category);
+                    const boxesInCategory = regularTerrainBoxes.filter(tb => tb.category === category);
                     if (boxesInCategory.length === 0) return null;
                     const availableCount = boxesInCategory.filter(tb => !bookedTerrainIds.has(tb.id)).length;
                     const totalCount = boxesInCategory.length;
@@ -582,6 +583,28 @@ Table Status
                                         </div>
                                     );
                                 })}
+                            </div>
+                        </div>
+                    );
+                })}
+                {secondaryTerrainBoxes.map(box => {
+                    const status = getSecondaryTerrainStatus(box, bookingsForSelectedDate, user?.id);
+                    const isFull = status.isFull;
+                    const isBookedByUser = status.isBookedByUser;
+                    const booking = status.booking;
+                    return (
+                        <div key={box.id} className="bg-neutral-800 border border-neutral-700 rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-3">
+                                <h3 className="font-semibold text-neutral-200">{box.name}</h3>
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${!isFull ? 'bg-green-900/30 text-green-400 border border-green-800/50' : 'bg-red-900/30 text-red-400 border border-red-800/50'}`}>
+                                    {status.isCapacityLimited ? `${status.availableCount}/${status.capacity} available` : 'extra item'}
+                                </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <div className={`text-xs px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${isFull ? 'bg-red-900/20 border-red-900/40 text-red-300' : isBookedByUser ? 'bg-amber-900/20 border-amber-600/50 text-amber-300' : 'bg-neutral-900 border-neutral-600 text-neutral-300 hover:border-neutral-400'}`} onMouseEnter={(e) => showTerrainPopover(box, booking, e.currentTarget)} onMouseLeave={hidePopover}>
+                                    <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1.5 ${isFull ? 'bg-red-400' : isBookedByUser ? 'bg-amber-400' : 'bg-green-400'}`}></span>
+                                    {box.name}
+                                </div>
                             </div>
                         </div>
                     );
@@ -698,6 +721,12 @@ allUsers={users}
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
               <span className="text-sm text-neutral-400">{terrainBoxes.find(t => t.id === popover.booking!.terrainBoxId)?.name || 'Terrain'}</span>
+            </div>
+          )}
+          {!popover.terrainBox && popover.booking.secondaryTerrainId && (
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+              <span className="text-sm text-neutral-400">{terrainBoxes.find(t => t.id === popover.booking!.secondaryTerrainId)?.name || 'Extra Terrain'}</span>
             </div>
           )}
           {popover.type === 'table' && (

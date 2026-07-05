@@ -24,6 +24,8 @@ export interface TerrainBox {
   imageUrl: string;
   uploadedImageUrl?: string;
   disabled?: boolean;
+  maxBookingsPerNight?: number;
+  allowAsSecondItem?: boolean;
 }
 
 export interface Booking {
@@ -31,6 +33,7 @@ export interface Booking {
   date: string; // YYYY-MM-DD
   tableId: string;
   terrainBoxId?: string | null; // Optional
+  secondaryTerrainId?: string | null; // Optional
   memberName: string;
   memberId: string; // To link to logged in user
   gameSystem: string;
