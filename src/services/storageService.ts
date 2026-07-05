@@ -75,7 +75,12 @@ export const initInventory = () => {
     if (!localStorage.getItem(TABLES_STORAGE_KEY)) {
         saveTables(INITIAL_TABLES);
     }
-    if (!localStorage.getItem(TERRAIN_STORAGE_KEY)) {
-        saveTerrainBoxes(INITIAL_TERRAIN_BOXES);
+
+    const existingTerrain = getTerrainBoxes();
+    const existingIds = new Set(existingTerrain.map(box => box.id));
+    const missingTerrain = INITIAL_TERRAIN_BOXES.filter(box => !existingIds.has(box.id));
+
+    if (!localStorage.getItem(TERRAIN_STORAGE_KEY) || missingTerrain.length > 0) {
+        saveTerrainBoxes([...existingTerrain, ...missingTerrain]);
     }
 };

@@ -5,10 +5,11 @@ import {
   sanitizeBookingForFirestore,
   canModifyBooking,
   buildCancellationUpdate,
+  getSecondaryTerrainStatus,
   BookingInput,
   BookingValidationContext,
 } from '../services/bookingService';
-import { Booking, User } from '../types';
+import { Booking, TerrainBox, User } from '../types';
 
 // ─── Test helpers ───────────────────────────────────────
 
@@ -161,6 +162,72 @@ describe('validateBooking', () => {
     );
     expect(result.valid).toBe(true);
   });
+
+  it('allows a secondary terrain item when fewer than five copies are already booked', () => {
+    const existing = Array.from({ length: 4 }, (_, index) => makeBooking({
+      id: `footprint-${index}`,
+      date: '2026-03-10',
+      terrainBoxId: null,
+      secondaryTerrainId: '40K-FOOTPRINTS',
+      memberId: `user-${index + 2}`,
+    }));
+    const result = validateBooking(
+      makeInput({ date: '2026-03-10', tableId: 'L2', secondaryTerrainId: '40K-FOOTPRINTS' }),
+      makeContext({ existingBookings: existing })
+    );
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects a secondary terrain item when all five copies are already booked', () => {
+    const existing = Array.from({ length: 5 }, (_, index) => makeBooking({
+      id: `footprint-${index}`,
+      date: '2026-03-10',
+      terrainBoxId: null,
+      secondaryTerrainId: '40K-FOOTPRINTS',
+      memberId: `user-${index + 2}`,
+    }));
+    const result = validateBooking(
+      makeInput({ date: '2026-03-10', tableId: 'L2', secondaryTerrainId: '40K-FOOTPRINTS' }),
+      makeContext({ existingBookings: existing })
+    );
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/fully booked/i);
+  });
+});
+
+describe('getSecondaryTerrainStatus', () => {
+  const box: TerrainBox = {
+    id: '40K-FOOTPRINTS',
+    category: 'Warhammer 40k' as never,
+    name: '40k Footprints',
+    imageUrl: '',
+    maxBookingsPerNight: 3,
+  };
+
+  it('reports when a secondary terrain item is fully booked', () => {
+    const bookings = Array.from({ length: 3 }, (_, index) => makeBooking({
+      id: `footprint-${index}`,
+      secondaryTerrainId: box.id,
+      memberId: `user-${index + 2}`,
+    }));
+
+    const status = getSecondaryTerrainStatus(box, bookings, 'user-1');
+
+    expect(status.isFull).toBe(true);
+    expect(status.availableCount).toBe(0);
+  });
+
+  it('reports when the current user already has that secondary terrain booked', () => {
+    const bookings = [
+      makeBooking({ id: 'mine', secondaryTerrainId: box.id, memberId: 'user-1' }),
+      makeBooking({ id: 'other', secondaryTerrainId: box.id, memberId: 'user-2' }),
+    ];
+
+    const status = getSecondaryTerrainStatus(box, bookings, 'user-1');
+
+    expect(status.isBookedByUser).toBe(true);
+    expect(status.booking?.memberId).toBe('user-1');
+  });
 });
 
 // ─── createBookingFromInput ─────────────────────────────
@@ -203,6 +270,11 @@ describe('createBookingFromInput', () => {
   it('preserves terrainBoxId when terrain is selected', () => {
     const booking = createBookingFromInput(makeInput({ terrainBoxId: 'terrain-1' }), makeUser());
     expect(booking.terrainBoxId).toBe('terrain-1');
+  });
+
+  it('preserves secondaryTerrainId when a secondary terrain item is selected', () => {
+    const booking = createBookingFromInput(makeInput({ secondaryTerrainId: '40K-FOOTPRINTS' }), makeUser());
+    expect(booking.secondaryTerrainId).toBe('40K-FOOTPRINTS');
   });
 
   it('always sets taggedPlayerIds as an array, never undefined', () => {

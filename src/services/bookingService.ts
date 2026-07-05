@@ -1,10 +1,12 @@
-import { Booking, User } from '../types';
+import { Booking, TerrainBox, User } from '../types';
+import { INITIAL_TERRAIN_BOXES } from '../constants';
 import { generateUUID } from '../utils';
 
 export interface BookingInput {
   date: string;
   tableId: string;
-  terrainBoxId: string;
+  terrainBoxId?: string;
+  secondaryTerrainId?: string;
   gameSystem: string;
   playerCount: number;
   taggedPlayerIds: string[];
@@ -14,12 +16,46 @@ export interface BookingValidationContext {
   cancelledDates: string[];
   user: User;
   existingBookings: Booking[];
+  terrainBoxes?: TerrainBox[];
   editingBookingId?: string;
 }
 
 export interface BookingValidationResult {
   valid: boolean;
   error?: string;
+}
+
+export interface SecondaryTerrainStatus {
+  capacity: number;
+  availableCount: number;
+  isCapacityLimited: boolean;
+  isFull: boolean;
+  isBookedByUser: boolean;
+  booking?: Booking;
+}
+
+export function getSecondaryTerrainStatus(
+  box: TerrainBox,
+  bookings: Booking[],
+  currentUserId?: string
+): SecondaryTerrainStatus {
+  const capacity = box.maxBookingsPerNight ?? 1;
+  const activeBookings = bookings.filter(
+    booking => booking.status === 'active' && booking.secondaryTerrainId === box.id
+  );
+  const availableCount = Math.max(0, capacity - activeBookings.length);
+  const booking = currentUserId
+    ? activeBookings.find(booking => booking.memberId === currentUserId || booking.taggedPlayerIds.includes(currentUserId))
+    : undefined;
+
+  return {
+    capacity,
+    availableCount,
+    isCapacityLimited: capacity > 1,
+    isFull: capacity > 1 && availableCount <= 0,
+    isBookedByUser: Boolean(booking),
+    booking,
+  };
 }
 
 /**
@@ -69,6 +105,22 @@ export function validateBooking(
     }
   }
 
+  if (input.secondaryTerrainId) {
+    const secondaryTerrainBox = (context.terrainBoxes ?? INITIAL_TERRAIN_BOXES).find(box => box.id === input.secondaryTerrainId);
+    const secondaryTerrainCapacity = secondaryTerrainBox?.maxBookingsPerNight ?? 1;
+    if (secondaryTerrainCapacity > 1) {
+      const secondaryTerrainBookings = context.existingBookings.filter(
+        b => b.date === input.date &&
+          b.secondaryTerrainId === input.secondaryTerrainId &&
+          b.status === 'active' &&
+          b.id !== context.editingBookingId
+      );
+      if (secondaryTerrainBookings.length >= secondaryTerrainCapacity) {
+        return { valid: false, error: 'That terrain set is fully booked for this date.' };
+      }
+    }
+  }
+
   return { valid: true };
 }
 
@@ -86,6 +138,7 @@ export function createBookingFromInput(
     date: input.date,
     tableId: input.tableId,
     terrainBoxId: input.terrainBoxId || null,
+    secondaryTerrainId: input.secondaryTerrainId || null,
     memberName: user.name,
     memberId: user.id,
     gameSystem: input.gameSystem,
@@ -105,6 +158,7 @@ export function sanitizeBookingForFirestore(booking: Booking): Booking {
     date: booking.date,
     tableId: booking.tableId,
     terrainBoxId: booking.terrainBoxId ?? null,
+    secondaryTerrainId: booking.secondaryTerrainId ?? null,
     memberName: booking.memberName,
     memberId: booking.memberId,
     gameSystem: booking.gameSystem,

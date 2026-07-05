@@ -36,3 +36,6 @@ extensions/*.env.local
 # Service account keys
 key.json
 *.key.json
+
+# Generated exports / reports
+reports/

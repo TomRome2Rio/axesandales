@@ -397,6 +397,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <select value={editingTerrain?.category} onChange={(e) => setEditingTerrain({...editingTerrain, category: e.target.value as TerrainCategory })} className="w-full bg-neutral-900 border border-neutral-600 rounded px-3 py-2 text-white">
             {Object.values(TerrainCategory).map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+        <div className="flex items-center gap-3">
+            <label className="text-sm text-neutral-400 whitespace-nowrap">Max bookings per night</label>
+            <input
+                type="number"
+                min="1"
+                step="1"
+                value={editingTerrain?.maxBookingsPerNight ?? 1}
+                onChange={(e) => setEditingTerrain({ ...editingTerrain, maxBookingsPerNight: Math.max(1, parseInt(e.target.value || '1', 10)) })}
+                className="w-24 bg-neutral-900 border border-neutral-600 rounded px-3 py-2 text-white"
+            />
+            <span className="text-xs text-neutral-500">Use 1 for standard single-booking terrain.</span>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-neutral-400">
+            <input
+                type="checkbox"
+                checked={Boolean(editingTerrain?.allowAsSecondItem)}
+                onChange={(e) => setEditingTerrain({ ...editingTerrain, allowAsSecondItem: e.target.checked })}
+                className="rounded border-neutral-600 bg-neutral-900 text-amber-500"
+            />
+            Allow booking as a second item alongside other terrain sets
+        </label>
         <input type="text" placeholder="Image URL (fallback)" value={editingTerrain?.imageUrl} onChange={(e) => setEditingTerrain({...editingTerrain, imageUrl: e.target.value })} className="w-full bg-neutral-900 border border-neutral-600 rounded px-3 py-2 text-white" />
         <div>
             <label className="block text-xs text-neutral-400 mb-1">Upload Image {editingTerrain?.uploadedImageUrl ? '(will replace current)' : '(optional, overrides URL above)'}</label>
@@ -612,7 +633,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         {box.uploadedImageUrl && <span className="text-[9px] bg-green-800 text-green-200 px-1.5 py-0.5 rounded-full border border-green-700">Uploaded</span>}
                     </div>
                     <img src={box.uploadedImageUrl || box.imageUrl} alt={box.name} className={`w-full h-32 object-cover ${box.disabled ? 'grayscale' : ''}`} />
-                    <div className="p-3"><p className="font-bold text-sm truncate">{box.name}</p><p className="text-xs text-neutral-400">{box.category}</p><div className="flex gap-3 mt-3 flex-wrap"><button onClick={() => setEditingTerrain(box)} className="text-xs text-neutral-400">Edit</button><button onClick={() => handleToggleTerrainDisabled(box.id)} className={`text-xs ${box.disabled ? 'text-green-400 hover:text-green-300' : 'text-yellow-400 hover:text-yellow-300'}`}>{box.disabled ? 'Enable' : 'Disable'}</button>{box.uploadedImageUrl && (<button onClick={() => handleRemoveTerrainImage(box.id)} disabled={terrainImageRemoving === box.id} className="text-xs text-orange-400 hover:text-orange-300 disabled:text-neutral-600">{terrainImageRemoving === box.id ? 'Removing...' : 'Remove Image'}</button>)}<button onClick={() => handleDeleteTerrain(box.id)} className="text-xs text-red-500">Delete</button></div></div>
+                    <div className="p-3"><p className="font-bold text-sm truncate">{box.name}</p><p className="text-xs text-neutral-400">{box.category}</p><p className="text-xs text-amber-400 mt-1">Capacity: {box.maxBookingsPerNight ?? 1} per night</p>{box.allowAsSecondItem && <p className="text-xs text-green-400 mt-1">Can be added as a second item</p>}<div className="flex gap-3 mt-3 flex-wrap"><button onClick={() => setEditingTerrain(box)} className="text-xs text-neutral-400">Edit</button><button onClick={() => handleToggleTerrainDisabled(box.id)} className={`text-xs ${box.disabled ? 'text-green-400 hover:text-green-300' : 'text-yellow-400 hover:text-yellow-300'}`}>{box.disabled ? 'Enable' : 'Disable'}</button>{box.uploadedImageUrl && (<button onClick={() => handleRemoveTerrainImage(box.id)} disabled={terrainImageRemoving === box.id} className="text-xs text-orange-400 hover:text-orange-300 disabled:text-neutral-600">{terrainImageRemoving === box.id ? 'Removing...' : 'Remove Image'}</button>)}<button onClick={() => handleDeleteTerrain(box.id)} className="text-xs text-red-500">Delete</button></div></div>
                 </div>
             ))}
         </div>
