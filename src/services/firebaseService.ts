@@ -497,17 +497,7 @@ export const markSwapMeetBookingInvoiced = async (
 export const subscribeBookings = (callback: (bookings: Booking[]) => void): Unsubscribe => {
     const q = query(collection(db, 'bookings'));
     return onSnapshot(q, (snapshot) => {
-        const bookings = snapshot.docs.map(d => {
-            const data = d.data();
-            return {
-                ...data,
-                id: d.id,
-                terrainBoxId: data.terrainBoxId ?? null,
-                secondaryTerrainId: data.secondaryTerrainId ?? null,
-                taggedPlayerIds: data.taggedPlayerIds ?? [],
-                markedUnavailable: data.markedUnavailable ?? false,
-            } as Booking;
-        });
+        const bookings = snapshot.docs.map(d => mapBookingSnapshotData(d.id, d.data()));
         callback(bookings);
     }, (error) => {
         console.error('Error subscribing to bookings:', error);
@@ -522,6 +512,69 @@ export class BookingConflictError extends Error {
     }
 }
 
+export const mapBookingSnapshotData = (id: string, data: Record<string, unknown>): Booking => {
+    const bookingData = data as Partial<Booking>;
+    return {
+        ...(bookingData as Booking),
+        id,
+        terrainBoxId: bookingData.terrainBoxId ?? null,
+        secondaryTerrainId: bookingData.secondaryTerrainId ?? null,
+        taggedPlayerIds: bookingData.taggedPlayerIds ?? [],
+        markedUnavailable: bookingData.markedUnavailable ?? false,
+    };
+};
+
+export const getBookingSaveConflicts = (
+    booking: Booking,
+    activeBookings: Booking[]
+): string[] => {
+    const conflicts: string[] = [];
+    const tableConflict = activeBookings.find(
+        existing =>
+            existing.id !== booking.id &&
+            existing.date === booking.date &&
+            existing.status === 'active' &&
+            existing.tableId === booking.tableId
+    );
+    if (tableConflict) {
+        const name = tableConflict.memberName || 'another member';
+        conflicts.push(`That table has just been booked by ${name}.`);
+    }
+
+    if (booking.terrainBoxId) {
+        const terrainConflict = activeBookings.find(
+            existing =>
+                existing.id !== booking.id &&
+                existing.date === booking.date &&
+                existing.status === 'active' &&
+                existing.terrainBoxId === booking.terrainBoxId
+        );
+        if (terrainConflict) {
+            const name = terrainConflict.memberName || 'another member';
+            conflicts.push(`That terrain set has just been reserved by ${name}.`);
+        }
+    }
+
+    if (booking.secondaryTerrainId) {
+        const secondaryTerrainBox = INITIAL_TERRAIN_BOXES.find(box => box.id === booking.secondaryTerrainId);
+        const secondaryTerrainCapacity = secondaryTerrainBox?.maxBookingsPerNight ?? 1;
+        if (secondaryTerrainCapacity > 1) {
+            const secondaryTerrainBookings = activeBookings.filter(
+                existing =>
+                    existing.id !== booking.id &&
+                    existing.date === booking.date &&
+                    existing.status === 'active' &&
+                    existing.secondaryTerrainId === booking.secondaryTerrainId
+            );
+            if (secondaryTerrainBookings.length >= secondaryTerrainCapacity) {
+                conflicts.push('That terrain set is fully booked for this date.');
+            }
+        }
+    }
+
+    return conflicts;
+};
+
 export const saveBooking = async (booking: Booking): Promise<void> => {
     if (!booking.tableId) {
         throw new Error('Please select a table and enter a game system.');
@@ -534,35 +587,8 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
         where('status', '==', 'active')
     );
     const snapshot = await getDocs(q);
-    const conflicts: string[] = [];
-    const tableConflict = snapshot.docs.find(
-        d => d.id !== booking.id && d.data().tableId === booking.tableId
-    );
-    if (tableConflict) {
-        const name = tableConflict.data().memberName || 'another member';
-        conflicts.push(`That table has just been booked by ${name}.`);
-    }
-    if (booking.terrainBoxId) {
-        const terrainConflict = snapshot.docs.find(
-            d => d.id !== booking.id && d.data().terrainBoxId === booking.terrainBoxId
-        );
-        if (terrainConflict) {
-            const name = terrainConflict.data().memberName || 'another member';
-            conflicts.push(`That terrain set has just been reserved by ${name}.`);
-        }
-    }
-    if (booking.secondaryTerrainId) {
-        const secondaryTerrainBox = INITIAL_TERRAIN_BOXES.find(box => box.id === booking.secondaryTerrainId);
-        const secondaryTerrainCapacity = secondaryTerrainBox?.maxBookingsPerNight ?? 1;
-        if (secondaryTerrainCapacity > 1) {
-            const secondaryTerrainBookings = snapshot.docs.filter(
-                d => d.id !== booking.id && d.data().secondaryTerrainId === booking.secondaryTerrainId
-            );
-            if (secondaryTerrainBookings.length >= secondaryTerrainCapacity) {
-                conflicts.push('That terrain set is fully booked for this date.');
-            }
-        }
-    }
+    const activeBookings = snapshot.docs.map(d => mapBookingSnapshotData(d.id, d.data()));
+    const conflicts = getBookingSaveConflicts(booking, activeBookings);
     if (conflicts.length > 0) {
         throw new BookingConflictError(conflicts.join(' ') + ' Please make another selection.');
     }
@@ -571,17 +597,7 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
 
 export const fetchBookings = async (): Promise<Booking[]> => {
     const snapshot = await getDocs(collection(db, 'bookings'));
-    return snapshot.docs.map(d => {
-        const data = d.data();
-        return {
-            ...data,
-            id: d.id,
-            terrainBoxId: data.terrainBoxId ?? null,
-            secondaryTerrainId: data.secondaryTerrainId ?? null,
-            taggedPlayerIds: data.taggedPlayerIds ?? [],
-            markedUnavailable: data.markedUnavailable ?? false,
-        } as Booking;
-    });
+    return snapshot.docs.map(d => mapBookingSnapshotData(d.id, d.data()));
 };
 
 export const cancelBooking = async (id: string, cancelledByUserId: string): Promise<void> => {

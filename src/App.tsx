@@ -16,6 +16,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import * as firebaseService from './services/firebaseService';
 import { getSelectableDates, getBookableDates } from './constants';
 import { canModifyBooking, getSecondaryTerrainStatus } from './services/bookingService';
+import { shouldAutoAddGameSystem } from './utils/bookingFlowHelpers';
 import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeetBooking } from './types';
 
 type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events' | 'swapMeet';
@@ -294,11 +295,7 @@ try {
   throw err;
 }
 // Auto-add game system to the collection if it's a normal booking
-if (
-  !booking.markedUnavailable
-  && booking.gameSystem
-  && !gameSystems.some(g => g.toLowerCase() === booking.gameSystem.toLowerCase())
-) {
+if (shouldAutoAddGameSystem(booking, gameSystems)) {
   await firebaseService.addGameSystem(booking.gameSystem);
 }
 showToast(isNew ? 'Booking confirmed!' : 'Booking updated!');

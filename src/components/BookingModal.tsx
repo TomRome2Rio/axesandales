@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Booking, TerrainCategory, User, Table, TerrainBox } from '../types';
 import { GameSystemAutocomplete } from './GameSystemAutocomplete';
 import { validateBooking, createBookingFromInput, getSecondaryTerrainStatus } from '../services/bookingService';
+import { applyMarkedUnavailableToggle } from '../utils/bookingFlowHelpers';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -329,21 +330,22 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                                             onChange={(e) => {
                                               const next = e.target.checked;
                                               setMarkedUnavailable(next);
+                                              const nextState = applyMarkedUnavailableToggle(
+                                                {
+                                                  gameSystem,
+                                                  playerCount,
+                                                  playerCountManuallySet,
+                                                  taggedPlayerIds,
+                                                },
+                                                next
+                                              );
+                                              setGameSystem(nextState.gameSystem);
+                                              setPlayerCount(nextState.playerCount);
+                                              setPlayerCountManuallySet(nextState.playerCountManuallySet);
+                                              setTaggedPlayerIds(nextState.taggedPlayerIds);
                                               if (next) {
-                                                setTaggedPlayerIds([]);
-                                                setPlayerCount(0);
-                                                setPlayerCountManuallySet(true);
-                                                setGameSystem('Unavailable');
                                                 setPlayerSearchQuery('');
                                                 setIsPlayerDropdownOpen(false);
-                                              } else {
-                                                setPlayerCountManuallySet(false);
-                                                if (gameSystem === 'Unavailable') {
-                                                  setGameSystem('');
-                                                }
-                                                if (playerCount === 0) {
-                                                  setPlayerCount(2);
-                                                }
                                               }
                                             }}
                                             className="mt-1 h-4 w-4 rounded border-neutral-500 bg-neutral-800 text-amber-600 focus:ring-amber-500"
