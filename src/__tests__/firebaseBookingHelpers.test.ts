@@ -1,11 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-
-vi.mock('../firebaseConfig', () => ({
-  auth: {},
-  db: {},
-}));
-
-import { getBookingSaveConflicts, mapBookingSnapshotData } from '../services/firebaseService';
+import { describe, expect, it } from 'vitest';
+import { getBookingSaveConflicts, mapBookingSnapshotData } from '../services/firebaseBookingHelpers';
 import type { Booking } from '../types';
 
 const makeBooking = (overrides: Partial<Booking> = {}): Booking => ({

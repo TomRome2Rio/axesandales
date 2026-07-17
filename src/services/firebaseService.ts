@@ -25,6 +25,15 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebaseConfig';
 import {
+    getBookingSaveConflicts,
+    mapBookingSnapshotData,
+} from './firebaseBookingHelpers';
+import {
+    mergeTerrainBoxesWithDefaults,
+    sortFirestoreDocumentsById,
+    slugifyFirestoreId,
+} from './firebaseDocumentHelpers';
+import {
     User,
     Booking,
     Table,
@@ -36,13 +45,20 @@ import {
 } from '../types';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
 import { chunkArray } from '../utils/gameSystemRename';
+import { fileToDataUrl } from '../utils/fileToDataUrl';
 import {
     buildSwapMeetBooking,
-    getSwapMeetBookedStallCount,
     isSwapMeetBookingActive,
     SWAP_MEET_TOTAL_STALLS,
     validateSwapMeetStallCount,
 } from './swapMeetService';
+import {
+    cancelLocalSwapMeetBooking,
+    markLocalSwapMeetBookingInvoiced,
+    markLocalSwapMeetBookingPaid,
+    saveLocalSwapMeetBooking,
+    subscribeLocalSwapMeetBookings,
+} from './swapMeetLocalStore';
 
 const googleProvider = new GoogleAuthProvider();
 const isLocalDev = import.meta.env.DEV;
@@ -174,8 +190,6 @@ export const updateUserProfile = async (uid: string, data: Partial<User>) => {
 };
 
 export const deleteUser = async (uid: string) => {
-    alert("SECURITY WARNING: Deleting users from the client is insecure and often disabled. Please delete this user from the Firebase Authentication and Firestore consoles manually.");
-    // First, delete the Firestore document.
     const userDoc = doc(db, 'users', uid);
     await deleteDoc(userDoc);
 };
@@ -215,24 +229,12 @@ export const subscribeMembershipAudit = (
 // =====================================================
 
 const SWAP_MEET_STATE_DOC_ID = '2026-07-19';
-let localSwapMeetBookings: SwapMeetBooking[] = [];
-const localSwapMeetSubscribers = new Set<(bookings: SwapMeetBooking[]) => void>();
-
-const notifyLocalSwapMeetSubscribers = () => {
-    const bookings = [...localSwapMeetBookings]
-        .sort((a, b) => a.userName.localeCompare(b.userName, undefined, { sensitivity: 'base' }));
-    localSwapMeetSubscribers.forEach(callback => callback(bookings));
-};
 
 export const subscribeSwapMeetBookings = (
     callback: (bookings: SwapMeetBooking[]) => void
 ): Unsubscribe => {
     if (isLocalDev) {
-        localSwapMeetSubscribers.add(callback);
-        callback([...localSwapMeetBookings]);
-        return () => {
-            localSwapMeetSubscribers.delete(callback);
-        };
+        return subscribeLocalSwapMeetBookings(callback);
     }
 
     const q = query(collection(db, 'swapMeetBookings'), orderBy('userName', 'asc'));
@@ -250,28 +252,7 @@ export const saveSwapMeetBooking = async (
     stallCount: number
 ): Promise<void> => {
     if (isLocalDev) {
-        const existingBooking = localSwapMeetBookings.find(booking => booking.userId === user.id) ?? null;
-        const previousStallCount = existingBooking && isSwapMeetBookingActive(existingBooking)
-            ? existingBooking.stallCount
-            : 0;
-        const bookedStallCount = getSwapMeetBookedStallCount(localSwapMeetBookings);
-        const validation = validateSwapMeetStallCount(
-            stallCount,
-            previousStallCount,
-            bookedStallCount
-        );
-
-        if (!validation.valid) {
-            throw new Error(validation.error);
-        }
-
-        const booking = buildSwapMeetBooking(user, stallCount, existingBooking);
-        localSwapMeetBookings = [
-            ...localSwapMeetBookings.filter(item => item.userId !== user.id),
-            booking,
-        ];
-        notifyLocalSwapMeetSubscribers();
-        return;
+        return saveLocalSwapMeetBooking(user, stallCount);
     }
 
     const bookingRef = doc(db, 'swapMeetBookings', user.id);
@@ -332,21 +313,7 @@ export const markSwapMeetBookingPaid = async (
     adminUser: User
 ): Promise<void> => {
     if (isLocalDev) {
-        const now = Date.now();
-        localSwapMeetBookings = localSwapMeetBookings.map(booking => (
-            booking.id === bookingId
-                ? {
-                    ...booking,
-                    paid: true,
-                    status: 'confirmed',
-                    updatedAt: now,
-                    paidAt: now,
-                    paidBy: adminUser.id,
-                }
-                : booking
-        ));
-        notifyLocalSwapMeetSubscribers();
-        return;
+        return markLocalSwapMeetBookingPaid(bookingId, adminUser);
     }
 
     const bookingRef = doc(db, 'swapMeetBookings', bookingId);
@@ -382,20 +349,7 @@ export const cancelSwapMeetBooking = async (
     cancelledByUser: User
 ): Promise<void> => {
     if (isLocalDev) {
-        const now = Date.now();
-        localSwapMeetBookings = localSwapMeetBookings.map(booking => (
-            booking.id === bookingId
-                ? {
-                    ...booking,
-                    status: 'cancelled',
-                    updatedAt: now,
-                    cancelledAt: now,
-                    cancelledBy: cancelledByUser.id,
-                }
-                : booking
-        ));
-        notifyLocalSwapMeetSubscribers();
-        return;
+        return cancelLocalSwapMeetBooking(bookingId, cancelledByUser);
     }
 
     const bookingRef = doc(db, 'swapMeetBookings', bookingId);
@@ -447,20 +401,7 @@ export const markSwapMeetBookingInvoiced = async (
     adminUser: User
 ): Promise<void> => {
     if (isLocalDev) {
-        const now = Date.now();
-        localSwapMeetBookings = localSwapMeetBookings.map(booking => (
-            booking.id === bookingId
-                ? {
-                    ...booking,
-                    invoiced: true,
-                    updatedAt: now,
-                    invoicedAt: now,
-                    invoicedBy: adminUser.id,
-                }
-                : booking
-        ));
-        notifyLocalSwapMeetSubscribers();
-        return;
+        return markLocalSwapMeetBookingInvoiced(bookingId, adminUser);
     }
 
     const bookingRef = doc(db, 'swapMeetBookings', bookingId);
@@ -512,69 +453,6 @@ export class BookingConflictError extends Error {
     }
 }
 
-export const mapBookingSnapshotData = (id: string, data: Record<string, unknown>): Booking => {
-    const bookingData = data as Partial<Booking>;
-    return {
-        ...(bookingData as Booking),
-        id,
-        terrainBoxId: bookingData.terrainBoxId ?? null,
-        secondaryTerrainId: bookingData.secondaryTerrainId ?? null,
-        taggedPlayerIds: bookingData.taggedPlayerIds ?? [],
-        markedUnavailable: bookingData.markedUnavailable ?? false,
-    };
-};
-
-export const getBookingSaveConflicts = (
-    booking: Booking,
-    activeBookings: Booking[]
-): string[] => {
-    const conflicts: string[] = [];
-    const tableConflict = activeBookings.find(
-        existing =>
-            existing.id !== booking.id &&
-            existing.date === booking.date &&
-            existing.status === 'active' &&
-            existing.tableId === booking.tableId
-    );
-    if (tableConflict) {
-        const name = tableConflict.memberName || 'another member';
-        conflicts.push(`That table has just been booked by ${name}.`);
-    }
-
-    if (booking.terrainBoxId) {
-        const terrainConflict = activeBookings.find(
-            existing =>
-                existing.id !== booking.id &&
-                existing.date === booking.date &&
-                existing.status === 'active' &&
-                existing.terrainBoxId === booking.terrainBoxId
-        );
-        if (terrainConflict) {
-            const name = terrainConflict.memberName || 'another member';
-            conflicts.push(`That terrain set has just been reserved by ${name}.`);
-        }
-    }
-
-    if (booking.secondaryTerrainId) {
-        const secondaryTerrainBox = INITIAL_TERRAIN_BOXES.find(box => box.id === booking.secondaryTerrainId);
-        const secondaryTerrainCapacity = secondaryTerrainBox?.maxBookingsPerNight ?? 1;
-        if (secondaryTerrainCapacity > 1) {
-            const secondaryTerrainBookings = activeBookings.filter(
-                existing =>
-                    existing.id !== booking.id &&
-                    existing.date === booking.date &&
-                    existing.status === 'active' &&
-                    existing.secondaryTerrainId === booking.secondaryTerrainId
-            );
-            if (secondaryTerrainBookings.length >= secondaryTerrainCapacity) {
-                conflicts.push('That terrain set is fully booked for this date.');
-            }
-        }
-    }
-
-    return conflicts;
-};
-
 export const saveBooking = async (booking: Booking): Promise<void> => {
     if (!booking.tableId) {
         throw new Error('Please select a table and enter a game system.');
@@ -615,16 +493,7 @@ export const cancelBooking = async (id: string, cancelledByUserId: string): Prom
 export const subscribeTables = (callback: (tables: Table[]) => void): Unsubscribe => {
     const q = query(collection(db, 'tables'));
     return onSnapshot(q, (snapshot) => {
-        const tables = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Table));
-        tables.sort((a, b) => {
-            const numA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
-            const numB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
-            const prefixA = a.id.replace(/\d/g, '');
-            const prefixB = b.id.replace(/\d/g, '');
-            if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
-            return numA - numB;
-        });
-        callback(tables);
+        callback(sortFirestoreDocumentsById(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Table))));
     }, (error) => {
         console.error('Error subscribing to tables:', error);
     });
@@ -660,16 +529,7 @@ export const initTablesIfEmpty = async (): Promise<void> => {
 export const subscribeTerrainBoxes = (callback: (boxes: TerrainBox[]) => void): Unsubscribe => {
     const q = query(collection(db, 'terrainBoxes'));
     return onSnapshot(q, (snapshot) => {
-        const boxes = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as TerrainBox));
-        boxes.sort((a, b) => {
-            const numA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
-            const numB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
-            const prefixA = a.id.replace(/\d/g, '');
-            const prefixB = b.id.replace(/\d/g, '');
-            if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
-            return numA - numB;
-        });
-        callback(boxes);
+        callback(sortFirestoreDocumentsById(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as TerrainBox))));
     }, (error) => {
         console.error('Error subscribing to terrain boxes:', error);
     });
@@ -696,16 +556,9 @@ export const initTerrainBoxesIfEmpty = async (): Promise<void> => {
         }
 
         const existingBoxes = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as TerrainBox));
-        const missingDefaults = INITIAL_TERRAIN_BOXES.filter(defaultBox => !existingBoxes.some(box => box.id === defaultBox.id));
-        if (missingDefaults.length > 0) {
-            const mergedBoxes = [...existingBoxes, ...missingDefaults].sort((a, b) => {
-                const numA = parseInt(a.id.replace(/\D/g, ''), 10) || 0;
-                const numB = parseInt(b.id.replace(/\D/g, ''), 10) || 0;
-                const prefixA = a.id.replace(/\d/g, '');
-                const prefixB = b.id.replace(/\d/g, '');
-                if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
-                return numA - numB;
-            });
+        const mergedBoxes = mergeTerrainBoxesWithDefaults(existingBoxes, INITIAL_TERRAIN_BOXES);
+        const hasMissingDefaults = INITIAL_TERRAIN_BOXES.some(defaultBox => !existingBoxes.some(box => box.id === defaultBox.id));
+        if (hasMissingDefaults) {
             await saveTerrainBoxesToDb(mergedBoxes);
         }
     } catch (error) {
@@ -715,7 +568,7 @@ export const initTerrainBoxesIfEmpty = async (): Promise<void> => {
 
 // Upload a terrain image as a base64 data URL stored directly in Firestore
 export const uploadTerrainImage = async (terrainId: string, file: File): Promise<string> => {
-    const dataUrl = await fileToBase64(file);
+    const dataUrl = await fileToDataUrl(file);
 
     // Update the terrain doc with the base64 data URL
     const terrainDoc = doc(db, 'terrainBoxes', terrainId);
@@ -728,16 +581,6 @@ export const uploadTerrainImage = async (terrainId: string, file: File): Promise
 export const removeTerrainImage = async (terrainId: string): Promise<void> => {
     const terrainDoc = doc(db, 'terrainBoxes', terrainId);
     await updateDoc(terrainDoc, { uploadedImageUrl: null });
-};
-
-// Convert a File to a base64 data URL string
-const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
 };
 
 // =====================================================
@@ -806,7 +649,7 @@ export const fetchGameSystems = async (): Promise<string[]> => {
 };
 
 export const addGameSystem = async (name: string): Promise<void> => {
-    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const id = slugifyFirestoreId(name);
     const docRef = doc(db, 'gameSystems', id);
     const snap = await getDoc(docRef);
     if (!snap.exists()) {
@@ -820,8 +663,8 @@ export const renameGameSystem = async (oldName: string, newName: string): Promis
         return;
     }
 
-    const oldId = oldName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const newId = trimmedNewName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const oldId = slugifyFirestoreId(oldName);
+    const newId = slugifyFirestoreId(trimmedNewName);
 
     const bookingsSnap = await getDocs(collection(db, 'bookings'));
     const matchingBookings = bookingsSnap.docs.filter(d => d.data().gameSystem === oldName);
@@ -848,7 +691,7 @@ export const renameGameSystem = async (oldName: string, newName: string): Promis
 };
 
 export const deleteGameSystem = async (name: string): Promise<void> => {
-    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const id = slugifyFirestoreId(name);
     await deleteDoc(doc(db, 'gameSystems', id));
 };
 
@@ -892,7 +735,7 @@ export const subscribeEventTags = (callback: (tags: string[]) => void): Unsubscr
 };
 
 export const addEventTag = async (name: string): Promise<void> => {
-    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const id = slugifyFirestoreId(name);
     const docRef = doc(db, 'eventTags', id);
     const snap = await getDoc(docRef);
     if (!snap.exists()) {
@@ -901,6 +744,6 @@ export const addEventTag = async (name: string): Promise<void> => {
 };
 
 export const deleteEventTag = async (name: string): Promise<void> => {
-    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const id = slugifyFirestoreId(name);
     await deleteDoc(doc(db, 'eventTags', id));
 };

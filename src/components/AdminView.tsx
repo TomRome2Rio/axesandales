@@ -277,6 +277,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const handleDeleteUser = async (id: string) => {
     if (id === currentUser.id) return alert("Cannot delete self.");
     if(confirm('Delete this user? This only removes their profile data, not their authentication account.')) {
+        alert("SECURITY WARNING: Deleting users from the client is insecure and often disabled. Please delete this user from the Firebase Authentication and Firestore consoles manually.");
         await firebaseService.deleteUser(id);
         onUsersChange();
     }
