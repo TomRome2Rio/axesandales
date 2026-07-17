@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     outputs:
+      site-changed: ${{ steps.filter.outputs.site }}
       rules-changed: ${{ steps.filter.outputs.rules }}
       functions-changed: ${{ steps.filter.outputs.functions }}
       indexes-changed: ${{ steps.filter.outputs.indexes }}
@@ -35,6 +36,20 @@ jobs:
         id: filter
         with:
           filters: |
+            site:
+              - 'src/**'
+              - '!src/**/__tests__/**'
+              - '!src/**/*.test.ts'
+              - '!src/**/*.test.tsx'
+              - 'public/**'
+              - 'index.html'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'vite.config.ts'
+              - 'postcss.config.js'
+              - 'tailwind.config.js'
+              - 'tsconfig.json'
+              - 'tsconfig.node.json'
             rules:
               - 'firestore.rules'
             indexes:
@@ -121,7 +136,7 @@ jobs:
 
   build-and-deploy:
     needs: [detect-changes, validate-firestore-rules, deploy-firestore-rules, deploy-firestore-indexes, deploy-functions]
-    if: always() && !contains(needs.*.result, 'failure')
+    if: always() && !contains(needs.*.result, 'failure') && (github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.site-changed == 'true')
     runs-on: ubuntu-latest
     environment:
       name: github-pages
