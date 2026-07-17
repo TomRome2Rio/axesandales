@@ -16,7 +16,7 @@ import { onAuthStateChanged } from 'firebase/auth';
 import * as firebaseService from './services/firebaseService';
 import { getSelectableDates, getBookableDates } from './constants';
 import { canModifyBooking, getSecondaryTerrainStatus } from './services/bookingService';
-import { shouldAutoAddGameSystem } from './utils/bookingFlowHelpers';
+import { sanitizeBookingGameSystem, shouldAutoAddGameSystem } from './utils/bookingFlowHelpers';
 import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeetBooking } from './types';
 
 type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events' | 'swapMeet';
@@ -285,7 +285,22 @@ const handleBookingSave = async (booking: Booking) => {
 const isNew = !editingBooking;
 const bookingWithStatus: Booking = { ...booking, status: booking.status || 'active' };
 try {
-  await firebaseService.saveBooking(bookingWithStatus);
+  const [latestGameSystems, latestBookings] = await Promise.all([
+    firebaseService.fetchGameSystems(),
+    firebaseService.fetchBookings(),
+  ]);
+  const sanitizedGameSystem = sanitizeBookingGameSystem(
+    bookingWithStatus,
+    latestGameSystems,
+    latestBookings
+  );
+  const bookingToSave = sanitizedGameSystem === bookingWithStatus.gameSystem
+    ? bookingWithStatus
+    : { ...bookingWithStatus, gameSystem: sanitizedGameSystem };
+  await firebaseService.saveBooking(bookingToSave);
+  if (shouldAutoAddGameSystem(bookingToSave, latestGameSystems)) {
+    await firebaseService.addGameSystem(bookingToSave.gameSystem);
+  }
 } catch (err: unknown) {
   if (err instanceof Error && err.name === 'BookingConflictError') {
     // Force resync so the UI reflects latest availability
@@ -293,10 +308,6 @@ try {
     setAllBookings(fresh);
   }
   throw err;
-}
-// Auto-add game system to the collection if it's a normal booking
-if (shouldAutoAddGameSystem(booking, gameSystems)) {
-  await firebaseService.addGameSystem(booking.gameSystem);
 }
 showToast(isNew ? 'Booking confirmed!' : 'Booking updated!');
 };

@@ -798,6 +798,13 @@ export const subscribeGameSystems = (callback: (gameSystems: string[]) => void):
     });
 };
 
+export const fetchGameSystems = async (): Promise<string[]> => {
+    const snapshot = await getDocs(collection(db, 'gameSystems'));
+    const names = snapshot.docs.map(d => d.data().name as string).filter(Boolean);
+    names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    return names;
+};
+
 export const addGameSystem = async (name: string): Promise<void> => {
     const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     const docRef = doc(db, 'gameSystems', id);

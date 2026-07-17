@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyMarkedUnavailableToggle,
+  sanitizeBookingGameSystem,
   shouldAutoAddGameSystem,
 } from '../utils/bookingFlowHelpers';
 
@@ -88,5 +89,53 @@ describe('applyMarkedUnavailableToggle', () => {
       playerCountManuallySet: false,
       taggedPlayerIds: ['user-2'],
     });
+  });
+});
+
+describe('sanitizeBookingGameSystem', () => {
+  it('uses the existing game system when the name matches after removing whitespace and normalizing case', () => {
+    const result = sanitizeBookingGameSystem(
+      { gameSystem: 'Full spectrum dominance ', markedUnavailable: false },
+      ['Full Spectrum Dominance', 'Other System'],
+      []
+    );
+
+    expect(result).toBe('Full Spectrum Dominance');
+  });
+
+  it('prefers the matching existing system with the most bookings', () => {
+    const result = sanitizeBookingGameSystem(
+      { gameSystem: 'Full spectrum dominance', markedUnavailable: false },
+      ['Full spectrum dominance ', 'Full Spectrum Dominance'],
+      [
+        { gameSystem: 'Full Spectrum Dominance', status: 'active' },
+        { gameSystem: 'Full Spectrum Dominance', status: 'active' },
+        { gameSystem: 'Full spectrum dominance ', status: 'active' },
+      ]
+    );
+
+    expect(result).toBe('Full Spectrum Dominance');
+  });
+
+  it('keeps the entered name when there is no matching existing system', () => {
+    const result = sanitizeBookingGameSystem(
+      { gameSystem: 'Stargrave', markedUnavailable: false },
+      ['Warhammer 40k'],
+      []
+    );
+
+    expect(result).toBe('Stargrave');
+  });
+
+  it('does not sanitize unavailable bookings', () => {
+    const result = sanitizeBookingGameSystem(
+      { gameSystem: 'Unavailable', markedUnavailable: true },
+      ['Unavailable', 'Unavailable '],
+      [
+        { gameSystem: 'Unavailable ', status: 'active' },
+      ]
+    );
+
+    expect(result).toBe('Unavailable');
   });
 });
