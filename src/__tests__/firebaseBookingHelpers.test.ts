@@ -1,4 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../firebaseConfig', () => ({
+  auth: {},
+  db: {},
+}));
+
 import { getBookingSaveConflicts, mapBookingSnapshotData } from '../services/firebaseService';
 import type { Booking } from '../types';
 
