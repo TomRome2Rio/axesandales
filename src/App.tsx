@@ -17,6 +17,7 @@ import * as firebaseService from './services/firebaseService';
 import { getSelectableDates, getBookableDates } from './constants';
 import { canModifyBooking, getSecondaryTerrainStatus } from './services/bookingService';
 import { sanitizeBookingGameSystem, shouldAutoAddGameSystem } from './utils/bookingFlowHelpers';
+import { resolveSelectedBookingDate } from './utils/bookingDateSelection';
 import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeetBooking } from './types';
 
 type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events' | 'swapMeet';
@@ -106,7 +107,7 @@ const [eventTags, setEventTags] = useState<string[]>([]);
 const [swapMeetBookings, setSwapMeetBookings] = useState<SwapMeetBooking[]>([]);
 
 const selectableDates = getSelectableDates(specialEventDates, activeBookings, cancelledDates);
-const [selectedDate, setSelectedDate] = useState(selectableDates[0]?.value || new Date().toISOString().split('T')[0]);
+const [selectedDate, setSelectedDate] = useState('');
 
 // Modal State
 const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -276,8 +277,9 @@ if (
   return;
 }
 
-if (!selectableDates.find(d => d.value === selectedDate) && selectableDates.length > 0) {
-setSelectedDate(selectableDates[0].value);
+const nextSelectedDate = resolveSelectedBookingDate(selectableDates, selectedDate, linkedBookingDate);
+if (nextSelectedDate !== selectedDate) {
+setSelectedDate(nextSelectedDate);
 }
 }, [currentPage, locationSearch, scheduleLoaded, selectableDates, selectedDate]);
 
