@@ -29,6 +29,7 @@ const makeInput = (overrides: Partial<BookingInput> = {}): BookingInput => ({
   gameSystem: 'Warhammer 40k',
   playerCount: 2,
   taggedPlayerIds: [],
+  markedUnavailable: false,
   ...overrides,
 });
 
@@ -163,6 +164,37 @@ describe('validateBooking', () => {
     expect(result.valid).toBe(true);
   });
 
+  it('allows an unavailable booking when a table is selected', () => {
+    const result = validateBooking(
+      makeInput({
+        markedUnavailable: true,
+        tableId: 'L2',
+        terrainBoxId: 'terrain-1',
+        gameSystem: '',
+        playerCount: 0,
+        taggedPlayerIds: [],
+      }),
+      makeContext()
+    );
+
+    expect(result.valid).toBe(true);
+  });
+
+  it('rejects an unavailable booking with no table selected', () => {
+    const result = validateBooking(
+      makeInput({
+        markedUnavailable: true,
+        tableId: '',
+        terrainBoxId: '',
+        secondaryTerrainId: '',
+      }),
+      makeContext()
+    );
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toMatch(/select a table and enter a game system/i);
+  });
+
   it('allows a secondary terrain item when fewer than five copies are already booked', () => {
     const existing = Array.from({ length: 4 }, (_, index) => makeBooking({
       id: `footprint-${index}`,
@@ -247,6 +279,7 @@ describe('createBookingFromInput', () => {
     expect(booking.gameSystem).toBe('Warhammer 40k');
     expect(booking.playerCount).toBe(2);
     expect(booking.taggedPlayerIds).toEqual(['user-3']);
+    expect(booking.markedUnavailable).toBe(false);
     expect(booking.status).toBe('active');
     expect(booking.timestamp).toBeGreaterThan(0);
   });
@@ -281,6 +314,25 @@ describe('createBookingFromInput', () => {
     const booking = createBookingFromInput(makeInput({ taggedPlayerIds: [] }), makeUser());
     expect(booking.taggedPlayerIds).toEqual([]);
     expect(booking.taggedPlayerIds).not.toBeUndefined();
+  });
+
+  it('forces unavailable bookings to use the placeholder fields', () => {
+    const booking = createBookingFromInput(
+      makeInput({
+        markedUnavailable: true,
+        tableId: '',
+        terrainBoxId: 'terrain-1',
+        gameSystem: 'Age of Sigmar',
+        playerCount: 5,
+        taggedPlayerIds: ['user-3'],
+      }),
+      makeUser(),
+    );
+
+    expect(booking.markedUnavailable).toBe(true);
+    expect(booking.gameSystem).toBe('Unavailable');
+    expect(booking.playerCount).toBe(0);
+    expect(booking.taggedPlayerIds).toEqual([]);
   });
 });
 
@@ -328,6 +380,12 @@ describe('sanitizeBookingForFirestore', () => {
     const sanitized = sanitizeBookingForFirestore(booking);
     expect('cancelledAt' in sanitized).toBe(false);
     expect('cancelledBy' in sanitized).toBe(false);
+  });
+
+  it('includes the unavailable marker in firestore payloads', () => {
+    const booking = makeBooking({ markedUnavailable: true });
+    const sanitized = sanitizeBookingForFirestore(booking);
+    expect(sanitized.markedUnavailable).toBe(true);
   });
 });
 

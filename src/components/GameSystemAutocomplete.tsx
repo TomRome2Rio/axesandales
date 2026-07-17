@@ -6,6 +6,7 @@ interface GameSystemAutocompleteProps {
   gameSystems: string[];
   onNewSystem?: (name: string) => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 
 export const GameSystemAutocomplete: React.FC<GameSystemAutocompleteProps> = ({
@@ -13,6 +14,7 @@ export const GameSystemAutocomplete: React.FC<GameSystemAutocompleteProps> = ({
   onChange,
   gameSystems,
   placeholder = 'e.g. Warhammer 40k',
+  disabled = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -102,14 +104,18 @@ export const GameSystemAutocomplete: React.FC<GameSystemAutocompleteProps> = ({
         type="text"
         placeholder={placeholder}
         value={value}
+        disabled={disabled}
         onChange={(e) => {
+          if (disabled) return;
           onChange(e.target.value);
           setIsOpen(true);
         }}
-        onFocus={() => setIsOpen(true)}
+        onFocus={() => {
+          if (!disabled) setIsOpen(true);
+        }}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="w-full bg-neutral-800 border border-neutral-600 rounded px-3 py-2 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm"
+        className={`w-full bg-neutral-800 border border-neutral-600 rounded px-3 py-2 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
         autoComplete="off"
       />
       {showDropdown && (

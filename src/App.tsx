@@ -293,8 +293,12 @@ try {
   }
   throw err;
 }
-// Auto-add game system to the collection if it's new
-if (booking.gameSystem && !gameSystems.some(g => g.toLowerCase() === booking.gameSystem.toLowerCase())) {
+// Auto-add game system to the collection if it's a normal booking
+if (
+  !booking.markedUnavailable
+  && booking.gameSystem
+  && !gameSystems.some(g => g.toLowerCase() === booking.gameSystem.toLowerCase())
+) {
   await firebaseService.addGameSystem(booking.gameSystem);
 }
 showToast(isNew ? 'Booking confirmed!' : 'Booking updated!');
@@ -624,7 +628,7 @@ return (
 {currentPage === 'welcome' && <WelcomeView onNavigate={navigateTo} />}
 {currentPage === 'membership' && <MembershipView />}
 {currentPage === 'layout' && <ClubLayoutView />}
-{currentPage === 'stats' && <StatsView currentUser={user || (isDev ? DEV_USER : null)} />}
+{currentPage === 'stats' && <StatsView currentUser={user || (isDev ? DEV_USER : null)} showToast={showToast} />}
 {currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} nextClubDate={bookableDates[0] || null} />}
 {currentPage === 'swapMeet' && (
   <SwapMeetView
@@ -654,6 +658,7 @@ onCancelledDatesChange={handleCancelledDatesUpdate}
 onSpecialEventDatesChange={handleSpecialEventDatesUpdate}
 currentUser={user || DEV_USER}
 gameSystems={gameSystems}
+showToast={showToast}
 />
 )}
 </Layout>

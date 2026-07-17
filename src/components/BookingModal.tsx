@@ -31,6 +31,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
   const [gameSystem, setGameSystem] = useState('');
   const [playerCount, setPlayerCount] = useState(2);
   const [playerCountManuallySet, setPlayerCountManuallySet] = useState(false);
+  const [markedUnavailable, setMarkedUnavailable] = useState(false);
   const [error, setError] = useState('');
   const [taggedPlayerIds, setTaggedPlayerIds] = useState<string[]>([]);
   const [playerSearchQuery, setPlayerSearchQuery] = useState('');
@@ -56,10 +57,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             setSelectedTableId(editingBooking.tableId);
             setSelectedTerrainId(editingBooking.terrainBoxId || '');
             setSelectedSecondaryTerrainId(editingBooking.secondaryTerrainId || '');
-            setGameSystem(editingBooking.gameSystem);
-            setPlayerCount(editingBooking.playerCount);
-            setPlayerCountManuallySet(true);
-            setTaggedPlayerIds(editingBooking.taggedPlayerIds);
+            setGameSystem(editingBooking.markedUnavailable ? 'Unavailable' : editingBooking.gameSystem);
+            setPlayerCount(editingBooking.markedUnavailable ? 0 : editingBooking.playerCount);
+            setPlayerCountManuallySet(Boolean(editingBooking.markedUnavailable));
+            setTaggedPlayerIds(editingBooking.markedUnavailable ? [] : editingBooking.taggedPlayerIds);
+            setMarkedUnavailable(Boolean(editingBooking.markedUnavailable));
         } else {
             setGameSystem('');
             setSelectedTableId('');
@@ -68,6 +70,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
             setPlayerCount(2);
             setPlayerCountManuallySet(false);
             setTaggedPlayerIds([]);
+            setMarkedUnavailable(false);
             setDate(bookableDates.includes(initialDate) ? initialDate : bookableDates[0]);
         }
         setActiveCategory('All');
@@ -120,6 +123,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
       gameSystem,
       playerCount,
       taggedPlayerIds,
+      markedUnavailable,
     };
 
     const validation = validateBooking(input, {
@@ -160,6 +164,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({
     const bookedTerrain = confirmedBooking.terrainBoxId ? terrainBoxes.find(b => b.id === confirmedBooking.terrainBoxId) : null;
     const displayDate = new Date(confirmedBooking.date + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' });
     const tagged = confirmedBooking.taggedPlayerIds.map(id => allUsers.find(u => u.id === id)?.name).filter(Boolean);
+    const confirmationMessage = confirmedBooking.markedUnavailable
+      ? 'This unavailable hold has been saved successfully.'
+      : 'Your table has been reserved successfully.';
     return (
       <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm p-2 md:p-4 flex items-center justify-center">
         <div className="bg-neutral-800 rounded-xl shadow-2xl max-w-md w-full border border-neutral-700 overflow-hidden mx-auto">
@@ -168,7 +175,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
             </div>
             <h2 className="text-xl font-bold text-white mb-1">Booking Confirmed!</h2>
-            <p className="text-neutral-400 text-sm mb-6">Your table has been reserved successfully.</p>
+            <p className="text-neutral-400 text-sm mb-6">{confirmationMessage}</p>
             <div className="bg-neutral-900/60 rounded-lg border border-neutral-700 p-4 text-left space-y-3 mb-6">
               <div className="flex justify-between items-center">
                 <span className="text-xs text-neutral-400 uppercase tracking-wider">Date</span>
@@ -177,7 +184,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
               <div className="border-t border-neutral-700/50" />
               <div className="flex justify-between items-center">
                 <span className="text-xs text-neutral-400 uppercase tracking-wider">Table</span>
-                <span className="text-sm text-white font-medium">{bookedTable?.name || confirmedBooking.tableId}</span>
+                <span className="text-sm text-white font-medium">{bookedTable?.name || confirmedBooking.tableId || 'No table selected'}</span>
               </div>
               <div className="border-t border-neutral-700/50" />
               <div className="flex justify-between items-center">
@@ -261,11 +268,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                                         value={gameSystem}
                                         onChange={setGameSystem}
                                         gameSystems={gameSystems}
+                                        disabled={markedUnavailable}
                                       />
                                     </div>
                                     <div className="flex items-center gap-3">
                                         <span className="text-xs text-neutral-400">Players:</span>
-                                        <input type="number" min="1" max="10" value={playerCount} onChange={(e) => { setPlayerCount(parseInt(e.target.value)); setPlayerCountManuallySet(true); }} className="w-20 bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm" />
+                                        <input type="number" min="0" max="10" value={playerCount} disabled={markedUnavailable} onChange={(e) => { setPlayerCount(parseInt(e.target.value)); setPlayerCountManuallySet(true); }} className="w-20 bg-neutral-800 border border-neutral-600 rounded px-2 py-1 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed" />
                                     </div>
                                     <div className="mt-3" ref={playerSearchRef}>
                                         <label className="block text-xs text-neutral-400 mb-1">Tag Players (Optional)</label>
@@ -273,10 +281,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                                             <input
                                                 type="text"
                                                 value={playerSearchQuery}
-                                                onChange={(e) => { setPlayerSearchQuery(e.target.value); setIsPlayerDropdownOpen(true); }}
-                                                onFocus={() => setIsPlayerDropdownOpen(true)}
+                                                disabled={markedUnavailable}
+                                                onChange={(e) => { if (markedUnavailable) return; setPlayerSearchQuery(e.target.value); setIsPlayerDropdownOpen(true); }}
+                                                onFocus={() => { if (!markedUnavailable) setIsPlayerDropdownOpen(true); }}
                                                 placeholder="Search users…"
-                                                className="w-full bg-neutral-800 border border-neutral-600 rounded px-3 py-2 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm"
+                                                className="w-full bg-neutral-800 border border-neutral-600 rounded px-3 py-2 text-white focus:ring-1 focus:ring-amber-500 focus:outline-none text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                                             />
                                             {isPlayerDropdownOpen && (() => {
                                                 const filtered = allUsers
@@ -302,7 +311,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                                                     return (
                                                         <span key={id} className="inline-flex items-center gap-1 bg-amber-900/30 border border-amber-700/50 text-amber-300 text-xs px-2 py-1 rounded-full">
                                                             {taggedUser?.name || 'Unknown'}
-                                                            <button type="button" onClick={() => setTaggedPlayerIds(prev => { const next = prev.filter(p => p !== id); if (!playerCountManuallySet) setPlayerCount(next.length + 1); return next; })} className="hover:text-white transition-colors">
+                                                            <button type="button" disabled={markedUnavailable} onClick={() => setTaggedPlayerIds(prev => { const next = prev.filter(p => p !== id); if (!playerCountManuallySet) setPlayerCount(next.length + 1); return next; })} className="hover:text-white transition-colors disabled:cursor-not-allowed disabled:text-neutral-500">
                                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                                             </button>
                                                         </span>
@@ -311,6 +320,40 @@ export const BookingModal: React.FC<BookingModalProps> = ({
                                             </div>
                                         )}
                                     </div>
+                                    {user.isAdmin && (
+                                      <div className="mt-4 rounded-lg border border-dashed border-amber-700/50 bg-amber-950/10 p-3" title="Use this to temporarily make a table unavailable for a specific night.">
+                                        <label className="flex items-start gap-3 cursor-pointer text-sm text-neutral-200">
+                                          <input
+                                            type="checkbox"
+                                            checked={markedUnavailable}
+                                            onChange={(e) => {
+                                              const next = e.target.checked;
+                                              setMarkedUnavailable(next);
+                                              if (next) {
+                                                setTaggedPlayerIds([]);
+                                                setPlayerCount(0);
+                                                setPlayerCountManuallySet(true);
+                                                setGameSystem('Unavailable');
+                                                setPlayerSearchQuery('');
+                                                setIsPlayerDropdownOpen(false);
+                                              } else {
+                                                setPlayerCountManuallySet(false);
+                                                if (gameSystem === 'Unavailable') {
+                                                  setGameSystem('');
+                                                }
+                                                if (playerCount === 0) {
+                                                  setPlayerCount(2);
+                                                }
+                                              }
+                                            }}
+                                            className="mt-1 h-4 w-4 rounded border-neutral-500 bg-neutral-800 text-amber-600 focus:ring-amber-500"
+                                          />
+                                          <span>
+                                            <span className="block font-medium text-white">Make Table Unavailable</span>
+                                          </span>
+                                        </label>
+                                      </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -413,7 +456,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({
         )}
         <div className="p-6 border-t border-neutral-700 bg-neutral-800 flex justify-end gap-3 z-20 shrink-0">
             <button onClick={onClose} className="px-5 py-2.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-700 transition-colors font-medium text-sm">Cancel</button>
-            <button onClick={handleSave} disabled={!selectedTableId || !gameSystem || cancelledDates.includes(date)} className="px-8 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:from-neutral-700 disabled:to-neutral-700 disabled:text-neutral-500 disabled:cursor-not-allowed text-white rounded-lg font-bold shadow-lg shadow-amber-900/20 transition-all hover:translate-y-px text-sm">Confirm Booking</button>
+            <button
+              onClick={handleSave}
+              disabled={
+                cancelledDates.includes(date)
+                || !selectedTableId
+                || (!markedUnavailable && !gameSystem)
+              }
+              className="px-8 py-2.5 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 disabled:from-neutral-700 disabled:to-neutral-700 disabled:text-neutral-500 disabled:cursor-not-allowed text-white rounded-lg font-bold shadow-lg shadow-amber-900/20 transition-all hover:translate-y-px text-sm"
+            >
+              Confirm Booking
+            </button>
         </div>
       </div>
     </div>

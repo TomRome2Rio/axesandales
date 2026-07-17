@@ -10,6 +10,7 @@ export interface BookingInput {
   gameSystem: string;
   playerCount: number;
   taggedPlayerIds: string[];
+  markedUnavailable?: boolean;
 }
 
 export interface BookingValidationContext {
@@ -73,23 +74,26 @@ export function validateBooking(
     return { valid: false, error: 'Your membership is not active. Please contact an admin.' };
   }
 
+  const isMarkedUnavailable = Boolean(input.markedUnavailable);
   if (!input.tableId) {
     return { valid: false, error: 'Please select a table and enter a game system.' };
   }
 
-  if (!input.gameSystem) {
+  if (!isMarkedUnavailable && !input.gameSystem) {
     return { valid: false, error: 'Please select a table and enter a game system.' };
   }
 
   // Check table availability for the given date
-  const conflicting = context.existingBookings.find(
-    b => b.date === input.date &&
-         b.tableId === input.tableId &&
-         b.status === 'active' &&
-         b.id !== context.editingBookingId
-  );
-  if (conflicting) {
-    return { valid: false, error: `Table is already booked by ${conflicting.memberName}.` };
+  if (input.tableId) {
+    const conflicting = context.existingBookings.find(
+      b => b.date === input.date &&
+           b.tableId === input.tableId &&
+           b.status === 'active' &&
+           b.id !== context.editingBookingId
+    );
+    if (conflicting) {
+      return { valid: false, error: `Table is already booked by ${conflicting.memberName}.` };
+    }
   }
 
   // Check terrain availability (if selected)
@@ -141,9 +145,10 @@ export function createBookingFromInput(
     secondaryTerrainId: input.secondaryTerrainId || null,
     memberName: user.name,
     memberId: user.id,
-    gameSystem: input.gameSystem,
-    playerCount: input.playerCount,
-    taggedPlayerIds: input.taggedPlayerIds,
+    gameSystem: input.markedUnavailable ? 'Unavailable' : input.gameSystem,
+    playerCount: input.markedUnavailable ? 0 : input.playerCount,
+    taggedPlayerIds: input.markedUnavailable ? [] : input.taggedPlayerIds,
+    markedUnavailable: Boolean(input.markedUnavailable),
     timestamp: Date.now(),
     status: editingBooking ? editingBooking.status : 'active',
   };
@@ -164,6 +169,7 @@ export function sanitizeBookingForFirestore(booking: Booking): Booking {
     gameSystem: booking.gameSystem,
     playerCount: booking.playerCount,
     taggedPlayerIds: booking.taggedPlayerIds ?? [],
+    markedUnavailable: booking.markedUnavailable ?? false,
     timestamp: booking.timestamp,
     status: booking.status,
     ...(booking.cancelledAt !== undefined ? { cancelledAt: booking.cancelledAt } : {}),

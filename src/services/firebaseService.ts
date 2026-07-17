@@ -504,7 +504,8 @@ export const subscribeBookings = (callback: (bookings: Booking[]) => void): Unsu
                 id: d.id,
                 terrainBoxId: data.terrainBoxId ?? null,
                 secondaryTerrainId: data.secondaryTerrainId ?? null,
-                taggedPlayerIds: data.taggedPlayerIds ?? []
+                taggedPlayerIds: data.taggedPlayerIds ?? [],
+                markedUnavailable: data.markedUnavailable ?? false,
             } as Booking;
         });
         callback(bookings);
@@ -522,6 +523,10 @@ export class BookingConflictError extends Error {
 }
 
 export const saveBooking = async (booking: Booking): Promise<void> => {
+    if (!booking.tableId) {
+        throw new Error('Please select a table and enter a game system.');
+    }
+
     // Fresh availability check immediately before writing to minimise race window
     const q = query(
         collection(db, 'bookings'),
@@ -573,7 +578,8 @@ export const fetchBookings = async (): Promise<Booking[]> => {
             id: d.id,
             terrainBoxId: data.terrainBoxId ?? null,
             secondaryTerrainId: data.secondaryTerrainId ?? null,
-            taggedPlayerIds: data.taggedPlayerIds ?? []
+            taggedPlayerIds: data.taggedPlayerIds ?? [],
+            markedUnavailable: data.markedUnavailable ?? false,
         } as Booking;
     });
 };

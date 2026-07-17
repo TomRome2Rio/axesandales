@@ -8,6 +8,10 @@ import {
   getMatchTypeLabel,
   type GameSystemSuggestion,
 } from '../utils/gameSystemSuggestions';
+import {
+  isStatsVisibleBooking,
+  normalizeStatText,
+} from '../utils/statsHelpers';
 
 type RangeMode = 'all' | 'range';
 type MetricMode = 'total' | 'perNight';
@@ -33,12 +37,6 @@ type SectionFiltersProps = {
 };
 
 const COLORS = ['#d97706', '#b45309', '#92400e', '#78350f', '#451a03', '#57534e'];
-
-const normalizeText = (value: string) => value.trim().toLowerCase();
-const isVisibleGameSystem = (value: string) => {
-  const normalized = normalizeText(value);
-  return Boolean(normalized) && normalized !== 'unavailable' && normalized !== 'not available';
-};
 
 const getChartHeight = (itemCount: number) => Math.max(240, itemCount * 32 + 24);
 
@@ -234,9 +232,10 @@ type RenameGameSystemModalProps = {
   suggestion?: GameSystemSuggestion | null;
   onClose: () => void;
   onSave: (nextName: string) => Promise<void>;
+  showToast?: (message: string) => void;
 };
 
-const RenameGameSystemModal: React.FC<RenameGameSystemModalProps> = ({ currentName, suggestion, onClose, onSave }) => {
+const RenameGameSystemModal: React.FC<RenameGameSystemModalProps> = ({ currentName, suggestion, onClose, onSave, showToast }) => {
   const [value, setValue] = useState(currentName);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -255,10 +254,12 @@ const RenameGameSystemModal: React.FC<RenameGameSystemModalProps> = ({ currentNa
     setError('');
     try {
       await onSave(nextName);
+      showToast?.(`Renamed "${currentName.trim()}" to "${nextName.trim()}".`);
       onClose();
     } catch (err) {
       console.error('Failed to rename game system:', err);
       setError(err instanceof Error ? err.message : 'Failed to rename game system.');
+      showToast?.('Failed to rename game system.');
     } finally {
       setSaving(false);
     }
@@ -339,9 +340,10 @@ const RenameGameSystemModal: React.FC<RenameGameSystemModalProps> = ({ currentNa
 
 type StatsViewProps = {
   currentUser?: User | null;
+  showToast?: (message: string) => void;
 };
 
-export const StatsView: React.FC<StatsViewProps> = ({ currentUser }) => {
+export const StatsView: React.FC<StatsViewProps> = ({ currentUser, showToast }) => {
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [terrainBoxes, setTerrainBoxes] = useState<TerrainBox[]>([]);
   const [gameMode, setGameMode] = useState<RangeMode>('all');
@@ -373,8 +375,8 @@ export const StatsView: React.FC<StatsViewProps> = ({ currentUser }) => {
     const options = Array.from(
       new Set(
         allBookings
+          .filter(isStatsVisibleBooking)
           .map(b => b.gameSystem.trim())
-          .filter(isVisibleGameSystem)
       )
     ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
@@ -382,33 +384,35 @@ export const StatsView: React.FC<StatsViewProps> = ({ currentUser }) => {
   }, [allBookings]);
 
   useEffect(() => {
-    if (terrainSelectedGameSystem !== 'all' && !gameSystemOptions.some(option => normalizeText(option) === normalizeText(terrainSelectedGameSystem))) {
+    if (terrainSelectedGameSystem !== 'all' && !gameSystemOptions.some(option => normalizeStatText(option) === normalizeStatText(terrainSelectedGameSystem))) {
       setTerrainSelectedGameSystem('all');
     }
   }, [gameSystemOptions, terrainSelectedGameSystem]);
 
+  const statsBookings = useMemo(() => allBookings.filter(isStatsVisibleBooking), [allBookings]);
+
   const gameDateFilteredBookings = useMemo(() => {
-    if (gameMode === 'all') return allBookings;
-    return allBookings.filter(b => {
+    if (gameMode === 'all') return statsBookings;
+    return statsBookings.filter(b => {
       if (gameStartDate && b.date < gameStartDate) return false;
       if (gameEndDate && b.date > gameEndDate) return false;
       return true;
     });
-  }, [allBookings, gameEndDate, gameMode, gameStartDate]);
+  }, [gameEndDate, gameMode, gameStartDate, statsBookings]);
 
   const terrainDateFilteredBookings = useMemo(() => {
-    if (terrainMode === 'all') return allBookings;
-    return allBookings.filter(b => {
+    if (terrainMode === 'all') return statsBookings;
+    return statsBookings.filter(b => {
       if (terrainStartDate && b.date < terrainStartDate) return false;
       if (terrainEndDate && b.date > terrainEndDate) return false;
       return true;
     });
-  }, [allBookings, terrainEndDate, terrainMode, terrainStartDate]);
+  }, [statsBookings, terrainEndDate, terrainMode, terrainStartDate]);
 
   const terrainFilteredBookings = useMemo(() => {
     if (terrainSelectedGameSystem === 'all') return terrainDateFilteredBookings;
-    const selected = normalizeText(terrainSelectedGameSystem);
-    return terrainDateFilteredBookings.filter(b => normalizeText(b.gameSystem) === selected);
+    const selected = normalizeStatText(terrainSelectedGameSystem);
+    return terrainDateFilteredBookings.filter(b => normalizeStatText(b.gameSystem) === selected);
   }, [terrainDateFilteredBookings, terrainSelectedGameSystem]);
 
   const terrainById = useMemo(() => {
@@ -431,7 +435,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ currentUser }) => {
     const counts: Record<string, number> = {};
     gameDateFilteredBookings.forEach(b => {
       const game = b.gameSystem;
-      if (!isVisibleGameSystem(game)) return;
       counts[game] = (counts[game] || 0) + 1;
     });
 
@@ -450,7 +453,6 @@ export const StatsView: React.FC<StatsViewProps> = ({ currentUser }) => {
     const counts = new Map<string, number>();
     gameDateFilteredBookings.forEach(b => {
       const game = b.gameSystem;
-      if (!isVisibleGameSystem(game)) return;
       counts.set(game, (counts.get(game) ?? 0) + 1);
     });
     return counts;
@@ -598,6 +600,7 @@ export const StatsView: React.FC<StatsViewProps> = ({ currentUser }) => {
           suggestion={renameSuggestion}
           onClose={() => setRenameTarget(null)}
           onSave={handleRenameGameSystem}
+          showToast={showToast}
         />
       )}
     </div>
