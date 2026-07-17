@@ -624,7 +624,7 @@ return (
 {currentPage === 'welcome' && <WelcomeView onNavigate={navigateTo} />}
 {currentPage === 'membership' && <MembershipView />}
 {currentPage === 'layout' && <ClubLayoutView />}
-{currentPage === 'stats' && <StatsView />}
+{currentPage === 'stats' && <StatsView currentUser={user || (isDev ? DEV_USER : null)} />}
 {currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} nextClubDate={bookableDates[0] || null} />}
 {currentPage === 'swapMeet' && (
   <SwapMeetView

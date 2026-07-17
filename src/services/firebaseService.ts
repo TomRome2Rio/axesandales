@@ -35,6 +35,7 @@ import {
     SwapMeetAuditEntry,
 } from '../types';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
+import { chunkArray } from '../utils/gameSystemRename';
 import {
     buildSwapMeetBooking,
     getSwapMeetBookedStallCount,
@@ -785,24 +786,36 @@ export const addGameSystem = async (name: string): Promise<void> => {
 };
 
 export const renameGameSystem = async (oldName: string, newName: string): Promise<void> => {
-    const batch = writeBatch(db);
+    const trimmedNewName = newName.trim();
+    if (!oldName || !trimmedNewName || oldName === trimmedNewName) {
+        return;
+    }
 
-    // Find and delete the old game system doc, create the new one
     const oldId = oldName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const newId = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const newId = trimmedNewName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-    batch.delete(doc(db, 'gameSystems', oldId));
-    batch.set(doc(db, 'gameSystems', newId), { name: newName });
-
-    // Update all bookings that reference the old game system
     const bookingsSnap = await getDocs(collection(db, 'bookings'));
-    bookingsSnap.docs.forEach(d => {
-        if (d.data().gameSystem === oldName) {
-            batch.update(doc(db, 'bookings', d.id), { gameSystem: newName });
-        }
-    });
+    const matchingBookings = bookingsSnap.docs.filter(d => d.data().gameSystem === oldName);
 
-    await batch.commit();
+    const bookingChunks = chunkArray(matchingBookings, 450);
+
+    const metaBatch = writeBatch(db);
+    if (oldId !== newId) {
+        metaBatch.delete(doc(db, 'gameSystems', oldId));
+    }
+    metaBatch.set(doc(db, 'gameSystems', newId), { name: trimmedNewName });
+    bookingChunks[0]?.forEach(d => {
+        metaBatch.update(doc(db, 'bookings', d.id), { gameSystem: trimmedNewName });
+    });
+    await metaBatch.commit();
+
+    for (const chunk of bookingChunks.slice(1)) {
+        const batch = writeBatch(db);
+        chunk.forEach(d => {
+            batch.update(doc(db, 'bookings', d.id), { gameSystem: trimmedNewName });
+        });
+        await batch.commit();
+    }
 };
 
 export const deleteGameSystem = async (name: string): Promise<void> => {
