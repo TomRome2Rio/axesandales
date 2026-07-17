@@ -35,6 +35,7 @@ import {
     SwapMeetAuditEntry,
 } from '../types';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
+import { chunkArray } from '../utils/gameSystemRename';
 import {
     buildSwapMeetBooking,
     getSwapMeetBookedStallCount,
@@ -496,16 +497,7 @@ export const markSwapMeetBookingInvoiced = async (
 export const subscribeBookings = (callback: (bookings: Booking[]) => void): Unsubscribe => {
     const q = query(collection(db, 'bookings'));
     return onSnapshot(q, (snapshot) => {
-        const bookings = snapshot.docs.map(d => {
-            const data = d.data();
-            return {
-                ...data,
-                id: d.id,
-                terrainBoxId: data.terrainBoxId ?? null,
-                secondaryTerrainId: data.secondaryTerrainId ?? null,
-                taggedPlayerIds: data.taggedPlayerIds ?? []
-            } as Booking;
-        });
+        const bookings = snapshot.docs.map(d => mapBookingSnapshotData(d.id, d.data()));
         callback(bookings);
     }, (error) => {
         console.error('Error subscribing to bookings:', error);
@@ -520,7 +512,74 @@ export class BookingConflictError extends Error {
     }
 }
 
+export const mapBookingSnapshotData = (id: string, data: Record<string, unknown>): Booking => {
+    const bookingData = data as Partial<Booking>;
+    return {
+        ...(bookingData as Booking),
+        id,
+        terrainBoxId: bookingData.terrainBoxId ?? null,
+        secondaryTerrainId: bookingData.secondaryTerrainId ?? null,
+        taggedPlayerIds: bookingData.taggedPlayerIds ?? [],
+        markedUnavailable: bookingData.markedUnavailable ?? false,
+    };
+};
+
+export const getBookingSaveConflicts = (
+    booking: Booking,
+    activeBookings: Booking[]
+): string[] => {
+    const conflicts: string[] = [];
+    const tableConflict = activeBookings.find(
+        existing =>
+            existing.id !== booking.id &&
+            existing.date === booking.date &&
+            existing.status === 'active' &&
+            existing.tableId === booking.tableId
+    );
+    if (tableConflict) {
+        const name = tableConflict.memberName || 'another member';
+        conflicts.push(`That table has just been booked by ${name}.`);
+    }
+
+    if (booking.terrainBoxId) {
+        const terrainConflict = activeBookings.find(
+            existing =>
+                existing.id !== booking.id &&
+                existing.date === booking.date &&
+                existing.status === 'active' &&
+                existing.terrainBoxId === booking.terrainBoxId
+        );
+        if (terrainConflict) {
+            const name = terrainConflict.memberName || 'another member';
+            conflicts.push(`That terrain set has just been reserved by ${name}.`);
+        }
+    }
+
+    if (booking.secondaryTerrainId) {
+        const secondaryTerrainBox = INITIAL_TERRAIN_BOXES.find(box => box.id === booking.secondaryTerrainId);
+        const secondaryTerrainCapacity = secondaryTerrainBox?.maxBookingsPerNight ?? 1;
+        if (secondaryTerrainCapacity > 1) {
+            const secondaryTerrainBookings = activeBookings.filter(
+                existing =>
+                    existing.id !== booking.id &&
+                    existing.date === booking.date &&
+                    existing.status === 'active' &&
+                    existing.secondaryTerrainId === booking.secondaryTerrainId
+            );
+            if (secondaryTerrainBookings.length >= secondaryTerrainCapacity) {
+                conflicts.push('That terrain set is fully booked for this date.');
+            }
+        }
+    }
+
+    return conflicts;
+};
+
 export const saveBooking = async (booking: Booking): Promise<void> => {
+    if (!booking.tableId) {
+        throw new Error('Please select a table and enter a game system.');
+    }
+
     // Fresh availability check immediately before writing to minimise race window
     const q = query(
         collection(db, 'bookings'),
@@ -528,35 +587,8 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
         where('status', '==', 'active')
     );
     const snapshot = await getDocs(q);
-    const conflicts: string[] = [];
-    const tableConflict = snapshot.docs.find(
-        d => d.id !== booking.id && d.data().tableId === booking.tableId
-    );
-    if (tableConflict) {
-        const name = tableConflict.data().memberName || 'another member';
-        conflicts.push(`That table has just been booked by ${name}.`);
-    }
-    if (booking.terrainBoxId) {
-        const terrainConflict = snapshot.docs.find(
-            d => d.id !== booking.id && d.data().terrainBoxId === booking.terrainBoxId
-        );
-        if (terrainConflict) {
-            const name = terrainConflict.data().memberName || 'another member';
-            conflicts.push(`That terrain set has just been reserved by ${name}.`);
-        }
-    }
-    if (booking.secondaryTerrainId) {
-        const secondaryTerrainBox = INITIAL_TERRAIN_BOXES.find(box => box.id === booking.secondaryTerrainId);
-        const secondaryTerrainCapacity = secondaryTerrainBox?.maxBookingsPerNight ?? 1;
-        if (secondaryTerrainCapacity > 1) {
-            const secondaryTerrainBookings = snapshot.docs.filter(
-                d => d.id !== booking.id && d.data().secondaryTerrainId === booking.secondaryTerrainId
-            );
-            if (secondaryTerrainBookings.length >= secondaryTerrainCapacity) {
-                conflicts.push('That terrain set is fully booked for this date.');
-            }
-        }
-    }
+    const activeBookings = snapshot.docs.map(d => mapBookingSnapshotData(d.id, d.data()));
+    const conflicts = getBookingSaveConflicts(booking, activeBookings);
     if (conflicts.length > 0) {
         throw new BookingConflictError(conflicts.join(' ') + ' Please make another selection.');
     }
@@ -565,16 +597,7 @@ export const saveBooking = async (booking: Booking): Promise<void> => {
 
 export const fetchBookings = async (): Promise<Booking[]> => {
     const snapshot = await getDocs(collection(db, 'bookings'));
-    return snapshot.docs.map(d => {
-        const data = d.data();
-        return {
-            ...data,
-            id: d.id,
-            terrainBoxId: data.terrainBoxId ?? null,
-            secondaryTerrainId: data.secondaryTerrainId ?? null,
-            taggedPlayerIds: data.taggedPlayerIds ?? []
-        } as Booking;
-    });
+    return snapshot.docs.map(d => mapBookingSnapshotData(d.id, d.data()));
 };
 
 export const cancelBooking = async (id: string, cancelledByUserId: string): Promise<void> => {
@@ -775,6 +798,13 @@ export const subscribeGameSystems = (callback: (gameSystems: string[]) => void):
     });
 };
 
+export const fetchGameSystems = async (): Promise<string[]> => {
+    const snapshot = await getDocs(collection(db, 'gameSystems'));
+    const names = snapshot.docs.map(d => d.data().name as string).filter(Boolean);
+    names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    return names;
+};
+
 export const addGameSystem = async (name: string): Promise<void> => {
     const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     const docRef = doc(db, 'gameSystems', id);
@@ -785,24 +815,36 @@ export const addGameSystem = async (name: string): Promise<void> => {
 };
 
 export const renameGameSystem = async (oldName: string, newName: string): Promise<void> => {
-    const batch = writeBatch(db);
+    const trimmedNewName = newName.trim();
+    if (!oldName || !trimmedNewName || oldName === trimmedNewName) {
+        return;
+    }
 
-    // Find and delete the old game system doc, create the new one
     const oldId = oldName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const newId = newName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    const newId = trimmedNewName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-    batch.delete(doc(db, 'gameSystems', oldId));
-    batch.set(doc(db, 'gameSystems', newId), { name: newName });
-
-    // Update all bookings that reference the old game system
     const bookingsSnap = await getDocs(collection(db, 'bookings'));
-    bookingsSnap.docs.forEach(d => {
-        if (d.data().gameSystem === oldName) {
-            batch.update(doc(db, 'bookings', d.id), { gameSystem: newName });
-        }
-    });
+    const matchingBookings = bookingsSnap.docs.filter(d => d.data().gameSystem === oldName);
 
-    await batch.commit();
+    const bookingChunks = chunkArray(matchingBookings, 450);
+
+    const metaBatch = writeBatch(db);
+    if (oldId !== newId) {
+        metaBatch.delete(doc(db, 'gameSystems', oldId));
+    }
+    metaBatch.set(doc(db, 'gameSystems', newId), { name: trimmedNewName });
+    bookingChunks[0]?.forEach(d => {
+        metaBatch.update(doc(db, 'bookings', d.id), { gameSystem: trimmedNewName });
+    });
+    await metaBatch.commit();
+
+    for (const chunk of bookingChunks.slice(1)) {
+        const batch = writeBatch(db);
+        chunk.forEach(d => {
+            batch.update(doc(db, 'bookings', d.id), { gameSystem: trimmedNewName });
+        });
+        await batch.commit();
+    }
 };
 
 export const deleteGameSystem = async (name: string): Promise<void> => {

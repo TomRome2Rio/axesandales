@@ -17,6 +17,7 @@ interface AdminViewProps {
   onSpecialEventDatesChange: (dates: string[]) => void;
   currentUser: User;
   gameSystems: string[];
+  showToast?: (message: string) => void;
 }
 
 const defaultTable: Omit<Table, 'id'> = { name: '', size: TableSize.LARGE };
@@ -32,7 +33,7 @@ const DragHandle: React.FC = () => (
 export const AdminView: React.FC<AdminViewProps> = ({ 
     tables, terrainBoxes, users, allBookings, cancelledDates, specialEventDates,
     onTablesChange, onTerrainChange, onUsersChange, onCancelledDatesChange, onSpecialEventDatesChange, 
-    currentUser, gameSystems 
+    currentUser, gameSystems, showToast
 }) => {
   const [editingTable, setEditingTable] = useState<Table | Partial<Table> | null>(null);
   const [editingTerrain, setEditingTerrain] = useState<TerrainBox | Partial<TerrainBox> | null>(null);
@@ -355,9 +356,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setGameRenameLoading(true);
     try {
       await firebaseService.renameGameSystem(oldName, newName);
+      showToast?.(`Renamed "${oldName.trim()}" to "${newName.trim()}".`);
       setRenamingGame(null);
     } catch (e) {
       alert('Error renaming game system. Check console.');
+      showToast?.('Failed to rename game system.');
       console.error(e);
     } finally {
       setGameRenameLoading(false);

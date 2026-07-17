@@ -16,6 +16,8 @@ import { onAuthStateChanged } from 'firebase/auth';
 import * as firebaseService from './services/firebaseService';
 import { getSelectableDates, getBookableDates } from './constants';
 import { canModifyBooking, getSecondaryTerrainStatus } from './services/bookingService';
+import { sanitizeBookingGameSystem, shouldAutoAddGameSystem } from './utils/bookingFlowHelpers';
+import { resolveSelectedBookingDate } from './utils/bookingDateSelection';
 import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeetBooking } from './types';
 
 type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events' | 'swapMeet';
@@ -105,7 +107,7 @@ const [eventTags, setEventTags] = useState<string[]>([]);
 const [swapMeetBookings, setSwapMeetBookings] = useState<SwapMeetBooking[]>([]);
 
 const selectableDates = getSelectableDates(specialEventDates, activeBookings, cancelledDates);
-const [selectedDate, setSelectedDate] = useState(selectableDates[0]?.value || new Date().toISOString().split('T')[0]);
+const [selectedDate, setSelectedDate] = useState('');
 
 // Modal State
 const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
@@ -275,8 +277,9 @@ if (
   return;
 }
 
-if (!selectableDates.find(d => d.value === selectedDate) && selectableDates.length > 0) {
-setSelectedDate(selectableDates[0].value);
+const nextSelectedDate = resolveSelectedBookingDate(selectableDates, selectedDate, linkedBookingDate);
+if (nextSelectedDate !== selectedDate) {
+setSelectedDate(nextSelectedDate);
 }
 }, [currentPage, locationSearch, scheduleLoaded, selectableDates, selectedDate]);
 
@@ -284,7 +287,22 @@ const handleBookingSave = async (booking: Booking) => {
 const isNew = !editingBooking;
 const bookingWithStatus: Booking = { ...booking, status: booking.status || 'active' };
 try {
-  await firebaseService.saveBooking(bookingWithStatus);
+  const [latestGameSystems, latestBookings] = await Promise.all([
+    firebaseService.fetchGameSystems(),
+    firebaseService.fetchBookings(),
+  ]);
+  const sanitizedGameSystem = sanitizeBookingGameSystem(
+    bookingWithStatus,
+    latestGameSystems,
+    latestBookings
+  );
+  const bookingToSave = sanitizedGameSystem === bookingWithStatus.gameSystem
+    ? bookingWithStatus
+    : { ...bookingWithStatus, gameSystem: sanitizedGameSystem };
+  await firebaseService.saveBooking(bookingToSave);
+  if (shouldAutoAddGameSystem(bookingToSave, latestGameSystems)) {
+    await firebaseService.addGameSystem(bookingToSave.gameSystem);
+  }
 } catch (err: unknown) {
   if (err instanceof Error && err.name === 'BookingConflictError') {
     // Force resync so the UI reflects latest availability
@@ -292,10 +310,6 @@ try {
     setAllBookings(fresh);
   }
   throw err;
-}
-// Auto-add game system to the collection if it's new
-if (booking.gameSystem && !gameSystems.some(g => g.toLowerCase() === booking.gameSystem.toLowerCase())) {
-  await firebaseService.addGameSystem(booking.gameSystem);
 }
 showToast(isNew ? 'Booking confirmed!' : 'Booking updated!');
 };
@@ -624,7 +638,7 @@ return (
 {currentPage === 'welcome' && <WelcomeView onNavigate={navigateTo} />}
 {currentPage === 'membership' && <MembershipView />}
 {currentPage === 'layout' && <ClubLayoutView />}
-{currentPage === 'stats' && <StatsView />}
+{currentPage === 'stats' && <StatsView currentUser={user || (isDev ? DEV_USER : null)} showToast={showToast} />}
 {currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} nextClubDate={bookableDates[0] || null} />}
 {currentPage === 'swapMeet' && (
   <SwapMeetView
@@ -654,6 +668,7 @@ onCancelledDatesChange={handleCancelledDatesUpdate}
 onSpecialEventDatesChange={handleSpecialEventDatesUpdate}
 currentUser={user || DEV_USER}
 gameSystems={gameSystems}
+showToast={showToast}
 />
 )}
 </Layout>
