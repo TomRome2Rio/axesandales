@@ -25,6 +25,7 @@ export const Layout: React.FC<LayoutProps> = ({
 }) => {
   const isDev = import.meta.env.DEV;
   const [menuOpen, setMenuOpen] = useState(false);
+  const contentWidth = currentPage === 'admin' ? 'max-w-[90rem]' : 'max-w-6xl';
 
   // Close the menu on route change / resize to desktop
   useEffect(() => setMenuOpen(false), [currentPage]);
@@ -178,7 +179,7 @@ export const Layout: React.FC<LayoutProps> = ({
       </div>
 
       {/* Page content */}
-      <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
+      <main className={`mx-auto w-full ${contentWidth} px-4 py-6`}>{children}</main>
     </div>
   );
 };

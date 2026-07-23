@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import { Layout } from './components/Layout';
 import { BookingModal } from './components/BookingModal';
 import { LoginModal } from './components/LoginModal';
@@ -18,7 +18,7 @@ import { getSelectableDates, getBookableDates } from './constants';
 import { canModifyBooking, getSecondaryTerrainStatus } from './services/bookingService';
 import { sanitizeBookingGameSystem, shouldAutoAddGameSystem } from './utils/bookingFlowHelpers';
 import { resolveSelectedBookingDate } from './utils/bookingDateSelection';
-import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeetBooking } from './types';
+import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeet, SwapMeetBooking } from './types';
 
 type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events' | 'swapMeet';
 
@@ -105,10 +105,16 @@ const [gameSystems, setGameSystems] = useState<string[]>([]);
 const [events, setEvents] = useState<ClubEvent[]>([]);
 const [eventTags, setEventTags] = useState<string[]>([]);
 const [swapMeetBookings, setSwapMeetBookings] = useState<SwapMeetBooking[]>([]);
+const [swapMeets, setSwapMeets] = useState<SwapMeet[]>([]);
 const [showSwapMeetTab, setShowSwapMeetTab] = useState(false);
 const [siteConfigLoaded, setSiteConfigLoaded] = useState(false);
 
 const selectableDates = getSelectableDates(specialEventDates, activeBookings, cancelledDates);
+const displayedSwapMeet = useMemo(() => {
+  const today = new Date().toISOString().slice(0, 10);
+  const ordered = [...swapMeets].sort((left, right) => left.date.localeCompare(right.date));
+  return ordered.find(swapMeet => swapMeet.date >= today) ?? ordered[ordered.length - 1] ?? null;
+}, [swapMeets]);
 const [selectedDate, setSelectedDate] = useState('');
 
 // Modal State
@@ -206,6 +212,7 @@ const unsubGameSystems = firebaseService.subscribeGameSystems(setGameSystems);
 const unsubEvents = firebaseService.subscribeEvents(setEvents);
 const unsubEventTags = firebaseService.subscribeEventTags(setEventTags);
 const unsubSwapMeetBookings = firebaseService.subscribeSwapMeetBookings(setSwapMeetBookings);
+const unsubSwapMeets = firebaseService.subscribeSwapMeets(setSwapMeets);
 const unsubUsers = firebaseService.subscribeUsers((allUsers) => {
     setUsers(allUsers);
     // Keep current user profile in sync with real-time updates
@@ -263,6 +270,7 @@ return () => {
     unsubEvents();
     unsubEventTags();
     unsubSwapMeetBookings();
+    unsubSwapMeets();
     unsubUsers();
 };
 }, []);
@@ -362,14 +370,23 @@ const handleSpecialEventDatesUpdate = async (dates: string[]) => { await firebas
 const handleShowSwapMeetTabChange = async (showSwapMeet: boolean) => {
   await firebaseService.saveShowSwapMeetTabToDb(showSwapMeet);
 };
-const handleSwapMeetBookingSave = async (stallCount: number) => {
+const handleSwapMeetBookingSave = async (stallCount: number, swapMeet: SwapMeet) => {
   const effectiveUser = user || (isDev ? DEV_USER : null);
   if (!effectiveUser) {
     setIsLoginModalOpen(true);
     return;
   }
-  await firebaseService.saveSwapMeetBooking(effectiveUser, stallCount);
+  await firebaseService.saveSwapMeetBooking(effectiveUser, stallCount, swapMeet);
   showToast('Swap meet booking saved!');
+};
+const handleSwapMeetSave = async (swapMeet: Pick<SwapMeet, 'id' | 'date' | 'stallCount'>) => {
+  await firebaseService.saveSwapMeet(swapMeet);
+};
+const handleSwapMeetDelete = async (swapMeetId: string) => {
+  await firebaseService.deleteSwapMeet(swapMeetId);
+};
+const refreshSwapMeetBookings = async () => {
+  setSwapMeetBookings(await firebaseService.fetchSwapMeetBookings());
 };
 const handleSwapMeetPaid = async (bookingId: string) => {
   const effectiveUser = user || (isDev ? DEV_USER : null);
@@ -661,6 +678,7 @@ return (
     user={user}
     users={users}
     bookings={swapMeetBookings}
+    swapMeet={displayedSwapMeet}
     onLogin={() => setIsLoginModalOpen(true)}
     onBookStalls={handleSwapMeetBookingSave}
     onMarkPaid={handleSwapMeetPaid}
@@ -677,11 +695,19 @@ users={users}
 allBookings={allBookings}
 cancelledDates={cancelledDates}
 specialEventDates={specialEventDates}
+swapMeets={swapMeets}
+swapMeetBookings={swapMeetBookings}
 onTablesChange={handleTablesUpdate}
 onTerrainChange={handleTerrainUpdate}
 onUsersChange={refreshUsers}
 onCancelledDatesChange={handleCancelledDatesUpdate}
 onSpecialEventDatesChange={handleSpecialEventDatesUpdate}
+onSwapMeetSave={handleSwapMeetSave}
+onSwapMeetDelete={handleSwapMeetDelete}
+onSwapMeetPaid={handleSwapMeetPaid}
+onSwapMeetInvoiced={handleSwapMeetInvoiced}
+onSwapMeetCancelled={handleSwapMeetCancelled}
+onSwapMeetBookingsRefresh={refreshSwapMeetBookings}
 showSwapMeetTab={showSwapMeetTab}
 onShowSwapMeetTabChange={handleShowSwapMeetTabChange}
 currentUser={user || DEV_USER}

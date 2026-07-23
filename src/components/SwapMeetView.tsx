@@ -1,11 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { SwapMeetBooking, User } from '../types';
+import { SwapMeet, SwapMeetBooking, User } from '../types';
 import {
   calculateSwapMeetAmountOwed,
   getSwapMeetAvailableStallCount,
   getSwapMeetBookedStallCount,
   isSwapMeetBookingActive,
-  SWAP_MEET_DATE,
   SWAP_MEET_MAX_STALLS_PER_USER,
   SWAP_MEET_STALL_PRICE,
   validateSwapMeetStallCount,
@@ -15,8 +14,9 @@ interface SwapMeetViewProps {
   user: User | null;
   users: User[];
   bookings: SwapMeetBooking[];
+  swapMeet: SwapMeet | null;
   onLogin: () => void;
-  onBookStalls: (stallCount: number) => Promise<void>;
+  onBookStalls: (stallCount: number, swapMeet: SwapMeet) => Promise<void>;
   onMarkPaid: (bookingId: string) => Promise<void>;
   onMarkInvoiced: (bookingId: string) => Promise<void>;
   onCancelBooking: (bookingId: string) => Promise<void>;
@@ -65,25 +65,32 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
   user,
   users,
   bookings,
+  swapMeet,
   onLogin,
   onBookStalls,
   onMarkPaid,
   onMarkInvoiced,
   onCancelBooking,
 }) => {
-  const myLatestBooking = user ? bookings.find(booking => booking.userId === user.id) : undefined;
+  const currentBookings = swapMeet
+    ? bookings.filter(booking => booking.swapMeetId === swapMeet.id)
+    : [];
+  const totalStallCount = swapMeet?.stallCount ?? 0;
+  const myLatestBooking = user ? currentBookings.find(booking => booking.userId === user.id) : undefined;
   const myBooking = myLatestBooking && isSwapMeetBookingActive(myLatestBooking)
     ? myLatestBooking
     : undefined;
-  const bookedStallCount = getSwapMeetBookedStallCount(bookings);
-  const availableStallCount = getSwapMeetAvailableStallCount(bookings);
+  const bookedStallCount = getSwapMeetBookedStallCount(currentBookings);
+  const availableStallCount = getSwapMeetAvailableStallCount(currentBookings, totalStallCount);
   const initialSelection = myBooking?.stallCount ?? 1;
   const [selectedStallCount, setSelectedStallCount] = useState(initialSelection);
   const [saving, setSaving] = useState(false);
   const [adminBusyId, setAdminBusyId] = useState<string | null>(null);
   const [showConfirmedOnly, setShowConfirmedOnly] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const bookingLink = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/booking?date=${SWAP_MEET_DATE}`;
+  const bookingLink = swapMeet
+    ? `${import.meta.env.BASE_URL.replace(/\/$/, '')}/booking?date=${swapMeet.date}`
+    : `${import.meta.env.BASE_URL.replace(/\/$/, '')}/booking`;
   const selectedAmountOwed = user
     ? calculateSwapMeetAmountOwed(selectedStallCount, user.isMember || user.isAdmin === true)
     : 0;
@@ -100,7 +107,7 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
   }, [users]);
 
   const adminRows = useMemo(
-    () => bookings
+    () => currentBookings
       .filter(booking => booking.stallCount > 0)
       .map(booking => {
         const bookingUser = usersById.get(booking.userId);
@@ -111,7 +118,7 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })),
-    [bookings, usersById]
+    [currentBookings, usersById]
   );
 
   const activeAdminRows = adminRows.filter(row => isSwapMeetBookingActive(row.booking));
@@ -131,7 +138,8 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
     const validation = validateSwapMeetStallCount(
       selectedStallCount,
       existingStallCount,
-      bookedStallCount
+      bookedStallCount,
+      totalStallCount
     );
     if (!validation.valid) {
       setMessage(validation.error ?? 'Please choose a valid half-table count.');
@@ -141,7 +149,8 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
     setSaving(true);
     setMessage(null);
     try {
-      await onBookStalls(selectedStallCount);
+      if (!swapMeet) return;
+      await onBookStalls(selectedStallCount, swapMeet);
       setMessage('Swap meet half-tables booked.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Could not save the booking.');
@@ -210,6 +219,17 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
     })));
   };
 
+  if (!swapMeet) {
+    return (
+      <section className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-8 text-center">
+        <h1 className="text-3xl font-bold text-white">Swap Meet</h1>
+        <p className="mt-3 text-neutral-400">No swap meet has been scheduled yet.</p>
+      </section>
+    );
+  }
+
+  const isPastSwapMeet = swapMeet.date < new Date().toISOString().slice(0, 10);
+
   return (
     <div className="space-y-8">
       <section className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6">
@@ -223,7 +243,7 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
           </div>
           <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-4 min-w-[220px]">
             <div className="text-sm text-neutral-500">Date</div>
-            <div className="text-xl font-bold text-amber-300 mt-1">{formatDate(SWAP_MEET_DATE)}</div>
+            <div className="text-xl font-bold text-amber-300 mt-1">{formatDate(swapMeet.date)}</div>
           </div>
         </div>
 
@@ -231,7 +251,7 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
           <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-4">
             <div className="text-sm text-neutral-500">Half-tables available</div>
             <div className="text-3xl font-bold text-white mt-1">{availableStallCount}</div>
-            <div className="text-xs text-neutral-500 mt-1">{bookedStallCount} of 30 booked</div>
+            <div className="text-xs text-neutral-500 mt-1">{bookedStallCount} of {totalStallCount} booked</div>
           </div>
           <div className="bg-neutral-900 border border-neutral-700 rounded-lg p-4">
             <div className="text-sm text-neutral-500">Your half-tables</div>
@@ -249,7 +269,12 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
       </section>
 
       <section className="bg-neutral-800/50 border border-neutral-700 rounded-xl p-6">
-        {!user ? (
+        {isPastSwapMeet ? (
+          <div className="py-4 text-center">
+            <h2 className="text-xl font-bold text-white">Bookings Closed</h2>
+            <p className="mt-2 text-neutral-400">This swap meet has already taken place, so bookings are no longer available.</p>
+          </div>
+        ) : !user ? (
           <div className="flex justify-center">
             <button
               onClick={onLogin}

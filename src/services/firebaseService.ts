@@ -40,6 +40,7 @@ import {
     TerrainBox,
     MembershipAuditEntry,
     ClubEvent,
+    SwapMeet,
     SwapMeetBooking,
     SwapMeetAuditEntry,
 } from '../types';
@@ -52,16 +53,8 @@ import {
     SWAP_MEET_TOTAL_STALLS,
     validateSwapMeetStallCount,
 } from './swapMeetService';
-import {
-    cancelLocalSwapMeetBooking,
-    markLocalSwapMeetBookingInvoiced,
-    markLocalSwapMeetBookingPaid,
-    saveLocalSwapMeetBooking,
-    subscribeLocalSwapMeetBookings,
-} from './swapMeetLocalStore';
 
 const googleProvider = new GoogleAuthProvider();
-const isLocalDev = import.meta.env.DEV;
 
 // Send a password reset email
 export const resetPassword = async (email: string): Promise<void> => {
@@ -228,18 +221,12 @@ export const subscribeMembershipAudit = (
 // SWAP MEET
 // =====================================================
 
-const SWAP_MEET_STATE_DOC_ID = '2026-07-19';
-
 export const subscribeSwapMeetBookings = (
     callback: (bookings: SwapMeetBooking[]) => void
 ): Unsubscribe => {
-    if (isLocalDev) {
-        return subscribeLocalSwapMeetBookings(callback);
-    }
-
     const q = query(collection(db, 'swapMeetBookings'), orderBy('userName', 'asc'));
     return onSnapshot(q, (snapshot) => {
-        const bookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as SwapMeetBooking));
+        const bookings = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as SwapMeetBooking));
         callback(bookings);
     }, (error) => {
         console.error('Error subscribing to swap meet bookings:', error);
@@ -249,14 +236,11 @@ export const subscribeSwapMeetBookings = (
 
 export const saveSwapMeetBooking = async (
     user: User,
-    stallCount: number
+    stallCount: number,
+    swapMeet: SwapMeet
 ): Promise<void> => {
-    if (isLocalDev) {
-        return saveLocalSwapMeetBooking(user, stallCount);
-    }
-
-    const bookingRef = doc(db, 'swapMeetBookings', user.id);
-    const stateRef = doc(db, 'swapMeetState', SWAP_MEET_STATE_DOC_ID);
+    const bookingRef = doc(db, 'swapMeetBookings', `${swapMeet.id}_${user.id}`);
+    const stateRef = doc(db, 'swapMeetState', swapMeet.id);
     const auditRef = doc(collection(db, 'swapMeetAudit'));
 
     await runTransaction(db, async (transaction) => {
@@ -273,25 +257,31 @@ export const saveSwapMeetBooking = async (
         const bookedStallCount = stateSnap.exists()
             ? Number(stateSnap.data().bookedStallCount ?? 0)
             : 0;
+        const totalStallCount = stateSnap.exists()
+            ? Number(stateSnap.data().stallCount ?? SWAP_MEET_TOTAL_STALLS)
+            : swapMeet.stallCount;
         const validation = validateSwapMeetStallCount(
             stallCount,
             previousStallCount,
-            bookedStallCount
+            bookedStallCount,
+            totalStallCount
         );
 
         if (!validation.valid) {
             throw new Error(validation.error);
         }
 
-        const booking = buildSwapMeetBooking(user, stallCount, existingBooking);
+        const booking = buildSwapMeetBooking(user, stallCount, existingBooking, swapMeet.id);
         const nextBookedStallCount = bookedStallCount - previousStallCount + stallCount;
-        if (nextBookedStallCount > SWAP_MEET_TOTAL_STALLS) {
+        if (nextBookedStallCount > totalStallCount) {
             throw new Error('The swap meet has just sold out. Please refresh and try again.');
         }
 
         transaction.set(bookingRef, booking);
         transaction.set(stateRef, {
             bookedStallCount: nextBookedStallCount,
+            stallCount: totalStallCount,
+            date: swapMeet.date,
             updatedAt: Date.now(),
         }, { merge: true });
         transaction.set(auditRef, {
@@ -312,10 +302,6 @@ export const markSwapMeetBookingPaid = async (
     bookingId: string,
     adminUser: User
 ): Promise<void> => {
-    if (isLocalDev) {
-        return markLocalSwapMeetBookingPaid(bookingId, adminUser);
-    }
-
     const bookingRef = doc(db, 'swapMeetBookings', bookingId);
     const auditRef = doc(collection(db, 'swapMeetAudit'));
     const now = Date.now();
@@ -348,20 +334,12 @@ export const cancelSwapMeetBooking = async (
     bookingId: string,
     cancelledByUser: User
 ): Promise<void> => {
-    if (isLocalDev) {
-        return cancelLocalSwapMeetBooking(bookingId, cancelledByUser);
-    }
-
     const bookingRef = doc(db, 'swapMeetBookings', bookingId);
-    const stateRef = doc(db, 'swapMeetState', SWAP_MEET_STATE_DOC_ID);
     const auditRef = doc(collection(db, 'swapMeetAudit'));
     const now = Date.now();
 
     await runTransaction(db, async (transaction) => {
-        const [bookingSnap, stateSnap] = await Promise.all([
-            transaction.get(bookingRef),
-            transaction.get(stateRef),
-        ]);
+        const bookingSnap = await transaction.get(bookingRef);
         if (!bookingSnap.exists()) {
             throw new Error('Swap meet booking not found.');
         }
@@ -369,6 +347,11 @@ export const cancelSwapMeetBooking = async (
         if (!isSwapMeetBookingActive(booking)) {
             return;
         }
+        if (!booking.swapMeetId) {
+            throw new Error('This booking is not linked to a swap meet yet. Run the migration first.');
+        }
+        const stateRef = doc(db, 'swapMeetState', booking.swapMeetId);
+        const stateSnap = await transaction.get(stateRef);
         const bookedStallCount = stateSnap.exists()
             ? Number(stateSnap.data().bookedStallCount ?? 0)
             : 0;
@@ -400,10 +383,6 @@ export const markSwapMeetBookingInvoiced = async (
     bookingId: string,
     adminUser: User
 ): Promise<void> => {
-    if (isLocalDev) {
-        return markLocalSwapMeetBookingInvoiced(bookingId, adminUser);
-    }
-
     const bookingRef = doc(db, 'swapMeetBookings', bookingId);
     const auditRef = doc(collection(db, 'swapMeetAudit'));
     const now = Date.now();
@@ -624,6 +603,66 @@ export const saveSpecialEventDatesToDb = async (dates: string[]): Promise<void> 
     } else {
         await setDoc(docRef, { cancelledDates: [], specialEventDates: dates });
     }
+};
+
+export const fetchSwapMeetBookings = async (): Promise<SwapMeetBooking[]> => {
+    const q = query(collection(db, 'swapMeetBookings'), orderBy('userName', 'asc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(d => ({ ...d.data(), id: d.id } as SwapMeetBooking));
+};
+
+export const subscribeSwapMeets = (
+    callback: (swapMeets: SwapMeet[]) => void
+): Unsubscribe => {
+    const q = query(collection(db, 'swapMeetState'), orderBy('date', 'asc'));
+    return onSnapshot(q, (snapshot) => {
+        callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as SwapMeet)));
+    }, (error) => {
+        console.error('Error subscribing to swap meets:', error);
+        callback([]);
+    });
+};
+
+export const saveSwapMeet = async (
+    swapMeet: Pick<SwapMeet, 'id' | 'date' | 'stallCount'>
+): Promise<void> => {
+    const matchingDates = await getDocs(query(
+        collection(db, 'swapMeetState'),
+        where('date', '==', swapMeet.date)
+    ));
+    if (matchingDates.docs.some(existingMeet => existingMeet.id !== swapMeet.id)) {
+        throw new Error('A swap meet is already scheduled for this date.');
+    }
+    const bookings = await getDocs(query(
+        collection(db, 'swapMeetBookings'),
+        where('swapMeetId', '==', swapMeet.id)
+    ));
+    const bookedStallCount = bookings.docs
+        .filter(booking => booking.data().status !== 'cancelled')
+        .reduce((total, booking) => total + Number(booking.data().stallCount ?? 0), 0);
+    if (bookedStallCount > swapMeet.stallCount) {
+        throw new Error('The stall count cannot be lower than the booked half-table count.');
+    }
+    const now = Date.now();
+    await setDoc(doc(db, 'swapMeetState', swapMeet.id), {
+        date: swapMeet.date,
+        stallCount: swapMeet.stallCount,
+        updatedAt: now,
+        createdAt: now,
+        bookedStallCount,
+    }, { merge: true });
+};
+
+export const deleteSwapMeet = async (swapMeetId: string): Promise<void> => {
+    const bookings = await getDocs(query(
+        collection(db, 'swapMeetBookings'),
+        where('swapMeetId', '==', swapMeetId)
+    ));
+    const hasActiveBookings = bookings.docs.some(booking => booking.data().status !== 'cancelled');
+    if (hasActiveBookings) {
+        throw new Error('This swap meet has active bookings and cannot be deleted.');
+    }
+    await deleteDoc(doc(db, 'swapMeetState', swapMeetId));
 };
 
 export const subscribeSiteConfig = (

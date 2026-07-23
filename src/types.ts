@@ -67,6 +67,7 @@ export interface MembershipAuditEntry {
 
 export interface SwapMeetBooking {
   id: string;
+  swapMeetId?: string;
   userId: string;
   userName: string;
   stallCount: number;
@@ -83,6 +84,15 @@ export interface SwapMeetBooking {
   invoicedBy?: string;
   cancelledAt?: number;
   cancelledBy?: string;
+}
+
+export interface SwapMeet {
+  id: string;
+  date: string;
+  stallCount: number;
+  bookedStallCount: number;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface SwapMeetAuditEntry {

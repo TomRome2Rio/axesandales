@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, TerrainBox, TableSize, TerrainCategory, User, Booking } from '../types';
+import { Table, TerrainBox, TableSize, TerrainCategory, User, Booking, SwapMeet, SwapMeetBooking } from '../types';
 import * as firebaseService from '../services/firebaseService';
 import { generateUUID } from '../utils';
 
@@ -10,17 +10,27 @@ interface AdminViewProps {
   allBookings: Booking[];
   cancelledDates: string[];
   specialEventDates: string[];
+  swapMeets: SwapMeet[];
+  swapMeetBookings: SwapMeetBooking[];
   onTablesChange: (tables: Table[]) => void;
   onTerrainChange: (terrainBoxes: TerrainBox[]) => void;
   onUsersChange: () => void;
   onCancelledDatesChange: (dates: string[]) => void;
   onSpecialEventDatesChange: (dates: string[]) => void;
+  onSwapMeetSave: (swapMeet: Pick<SwapMeet, 'id' | 'date' | 'stallCount'>) => Promise<void>;
+  onSwapMeetDelete: (swapMeetId: string) => Promise<void>;
+  onSwapMeetPaid: (bookingId: string) => Promise<void>;
+  onSwapMeetInvoiced: (bookingId: string) => Promise<void>;
+  onSwapMeetCancelled: (bookingId: string) => Promise<void>;
+  onSwapMeetBookingsRefresh: () => Promise<void>;
   showSwapMeetTab: boolean;
   onShowSwapMeetTabChange: (showSwapMeetTab: boolean) => void;
   currentUser: User;
   gameSystems: string[];
   showToast?: (message: string) => void;
 }
+
+type AdminTab = 'dates' | 'users' | 'terrain' | 'tables' | 'gameSystems';
 
 const defaultTable: Omit<Table, 'id'> = { name: '', size: TableSize.LARGE };
 const defaultTerrain: Omit<TerrainBox, 'id'> = { name: '', category: TerrainCategory.SCIFI, imageUrl: '' };
@@ -33,9 +43,10 @@ const DragHandle: React.FC = () => (
 );
 
 export const AdminView: React.FC<AdminViewProps> = ({ 
-    tables, terrainBoxes, users, allBookings, cancelledDates, specialEventDates,
+    tables, terrainBoxes, users, allBookings, cancelledDates, specialEventDates, swapMeets, swapMeetBookings,
     onTablesChange, onTerrainChange, onUsersChange, onCancelledDatesChange, onSpecialEventDatesChange,
-    showSwapMeetTab, onShowSwapMeetTabChange,
+    showSwapMeetTab, onShowSwapMeetTabChange, onSwapMeetSave, onSwapMeetDelete,
+    onSwapMeetPaid, onSwapMeetInvoiced, onSwapMeetCancelled, onSwapMeetBookingsRefresh,
     currentUser, gameSystems, showToast
 }) => {
   const [editingTable, setEditingTable] = useState<Table | Partial<Table> | null>(null);
@@ -57,6 +68,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [editingExpiryValue, setEditingExpiryValue] = useState<string>('');
   const [editingPaidUserId, setEditingPaidUserId] = useState<string | null>(null);
   const [editingPaidValue, setEditingPaidValue] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<AdminTab>('users');
+  const [selectedSwapMeetId, setSelectedSwapMeetId] = useState<string | null>(null);
+  const [swapMeetDate, setSwapMeetDate] = useState(new Date().toISOString().split('T')[0]);
+  const [swapMeetStallCount, setSwapMeetStallCount] = useState(30);
+  const [swapMeetSaving, setSwapMeetSaving] = useState(false);
+  const [viewingSwapMeet, setViewingSwapMeet] = useState<SwapMeet | null>(null);
+  const [swapMeetActionBusyId, setSwapMeetActionBusyId] = useState<string | null>(null);
 
   const handleDragStart = (e: React.DragEvent, id: string, type: 'table' | 'terrain') => {
     e.dataTransfer.setData(type, id);
@@ -354,6 +372,116 @@ export const AdminView: React.FC<AdminViewProps> = ({
     onSpecialEventDatesChange(specialEventDates.filter(d => d !== date));
   };
 
+  const selectSwapMeet = (swapMeet: SwapMeet) => {
+    setSelectedSwapMeetId(swapMeet.id);
+    setSwapMeetDate(swapMeet.date);
+    setSwapMeetStallCount(swapMeet.stallCount);
+  };
+
+  const resetSwapMeetForm = () => {
+    setSelectedSwapMeetId(null);
+    setSwapMeetDate(new Date().toISOString().split('T')[0]);
+    setSwapMeetStallCount(30);
+  };
+
+  const handleSaveSwapMeet = async () => {
+    if (!swapMeetDate || swapMeetStallCount < 1) return;
+    const selectedSwapMeet = swapMeets.find(swapMeet => swapMeet.id === selectedSwapMeetId);
+    const today = new Date().toISOString().slice(0, 10);
+    if (selectedSwapMeet && selectedSwapMeet.date < today) {
+      alert('Past swap meets cannot be edited.');
+      return;
+    }
+    if (swapMeets.some(swapMeet => swapMeet.date === swapMeetDate && swapMeet.id !== selectedSwapMeetId)) {
+      alert('A swap meet is already scheduled for this date.');
+      return;
+    }
+    if (selectedSwapMeet && !confirm('Save changes to this swap meet?')) return;
+    setSwapMeetSaving(true);
+    try {
+      const id = selectedSwapMeetId ?? `swap-meet-${generateUUID()}`;
+      await onSwapMeetSave({ id, date: swapMeetDate, stallCount: swapMeetStallCount });
+      setSelectedSwapMeetId(id);
+      showToast?.('Swap meet saved.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not save swap meet.');
+    } finally {
+      setSwapMeetSaving(false);
+    }
+  };
+
+  const handleDeleteSwapMeet = async (swapMeet: SwapMeet) => {
+    const bookingCount = swapMeetBookings.filter(booking => (
+      booking.swapMeetId === swapMeet.id && booking.status !== 'cancelled'
+    )).length;
+    if (bookingCount > 0) {
+      alert('This swap meet has active bookings and cannot be deleted.');
+      return;
+    }
+    if (!confirm(`Delete the swap meet on ${formatDateWithDay(swapMeet.date)}?`)) return;
+    try {
+      await onSwapMeetDelete(swapMeet.id);
+      if (selectedSwapMeetId === swapMeet.id) resetSwapMeetForm();
+      showToast?.('Swap meet deleted.');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not delete swap meet.');
+    }
+  };
+
+  const exportSwapMeetBookings = (swapMeet: SwapMeet) => {
+    const bookings = swapMeetBookings.filter(booking => (
+      booking.swapMeetId === swapMeet.id && booking.status !== 'cancelled'
+    ));
+    const escapeCell = (value: string | number | boolean) => {
+      const text = String(value);
+      return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    };
+    const rows = [
+      ['swap_meet_date', 'name', 'email', 'half_tables', 'amount_owed', 'status', 'paid', 'invoiced', 'booked_at'],
+      ...bookings.map(booking => {
+        const bookingUser = users.find(user => user.id === booking.userId);
+        return [
+          swapMeet.date,
+          bookingUser?.name ?? booking.userName,
+          bookingUser?.email ?? '',
+          booking.stallCount,
+          booking.amountOwed,
+          booking.status,
+          booking.paid,
+          booking.invoiced,
+          new Date(booking.createdAt).toISOString(),
+        ];
+      }),
+    ];
+    const csv = rows.map(row => row.map(escapeCell).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `swap-meet-${swapMeet.date}-bookings.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSwapMeetBookingAction = async (
+    booking: SwapMeetBooking,
+    action: (bookingId: string) => Promise<void>,
+    confirmation?: string
+  ) => {
+    if (confirmation && !confirm(confirmation)) return;
+    setSwapMeetActionBusyId(booking.id);
+    try {
+      await action(booking.id);
+      await onSwapMeetBookingsRefresh();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Could not update swap meet booking.');
+    } finally {
+      setSwapMeetActionBusyId(null);
+    }
+  };
+
   const handleRenameGame = async (oldName: string) => {
     const newName = renameValue.trim();
     if (!newName || newName === oldName) return;
@@ -453,10 +581,34 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <h1 className="text-3xl font-bold text-amber-500">Admin Panel</h1>
+      <div className="flex gap-2 overflow-x-auto border-b border-neutral-700 pb-3" role="tablist" aria-label="Admin sections">
+        {([
+          ['users', 'Users'],
+          ['dates', 'Club Dates'],
+          ['terrain', 'Terrain'],
+          ['tables', 'Tables'],
+          ['gameSystems', 'Game Systems'],
+        ] as const).map(([tab, label]) => (
+          <button
+            key={tab}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab}
+            onClick={() => setActiveTab(tab)}
+            className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab
+                ? 'bg-amber-600 text-white'
+                : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {/* Schedule */}
-      <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
+      {activeTab === 'dates' && <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
         <h2 className="text-xl font-bold mb-4">Manage Schedule</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div>
@@ -465,7 +617,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <input type="date" value={specialDateToAdd} onChange={e => setSpecialDateToAdd(e.target.value)} className="w-full bg-neutral-900 border border-neutral-600 rounded px-3 py-2 text-white" />
                     <button onClick={handleAddSpecialDate} className="bg-sky-700 hover:bg-sky-600 text-white px-4 py-2 rounded text-sm">Add</button>
                 </div>
-                 <div className="space-y-2 mt-2 max-h-40 overflow-y-auto pr-2 bg-neutral-800 p-3 rounded-lg">
+                 <div className="space-y-2 mt-2 bg-neutral-800 p-3 rounded-lg">
                     {specialEventDates.map(date => (
                         <div key={date} className="flex justify-between items-center bg-neutral-900 p-2 rounded">
                             <span className="text-neutral-300">{formatDateWithDay(date)}</span>
@@ -483,7 +635,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             </div>
             <div>
                  <h3 className="text-lg font-bold text-amber-500 mb-2">Cancelled Dates</h3>
-                 <div className="space-y-2 max-h-40 overflow-y-auto pr-2 bg-neutral-800 p-3 rounded-lg">
+                 <div className="space-y-2 bg-neutral-800 p-3 rounded-lg">
                     {cancelledDates.map(date => (
                         <div key={date} className="flex justify-between items-center bg-neutral-900 p-2 rounded">
                             <span className="text-neutral-300">{formatDateWithDay(date)}</span>
@@ -502,9 +654,87 @@ export const AdminView: React.FC<AdminViewProps> = ({
             />
             <span>Show Swap Meet Tab</span>
         </label>
-      </div>
+        <section className="mt-8 border-t border-neutral-700 pt-6">
+          <div>
+            <h2 className="text-xl font-bold text-white">Swap Meet Schedule</h2>
+            <p className="mt-1 text-sm text-neutral-400">Set the date and number of half-tables available for each swap meet.</p>
+          </div>
+          <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end">
+            <label className="text-sm text-neutral-300">
+              Swap meet date
+              <input type="date" value={swapMeetDate} onChange={event => setSwapMeetDate(event.target.value)} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-3 py-2 text-white" />
+            </label>
+            <label className="text-sm text-neutral-300">
+              Half-tables available
+              <input type="number" min="1" value={swapMeetStallCount} onChange={event => setSwapMeetStallCount(Math.max(1, Number(event.target.value)))} className="mt-1 w-full rounded border border-neutral-600 bg-neutral-900 px-3 py-2 text-white" />
+            </label>
+            <div className="flex gap-2">
+              <button onClick={handleSaveSwapMeet} disabled={swapMeetSaving} className="rounded bg-amber-600 px-4 py-2 font-medium text-white hover:bg-amber-700 disabled:bg-neutral-700">
+                {swapMeetSaving ? 'Saving...' : selectedSwapMeetId ? 'Save Changes' : 'Create Swap Meet'}
+              </button>
+              {selectedSwapMeetId && <button onClick={resetSwapMeetForm} className="rounded bg-neutral-700 px-3 py-2 text-sm text-white hover:bg-neutral-600">Cancel Edit</button>}
+            </div>
+          </div>
+          <div className="mt-5 space-y-2">
+            {swapMeets.length === 0 && <p className="text-sm text-neutral-500">No swap meets are scheduled.</p>}
+            {swapMeets.map(swapMeet => {
+              const meetBookings = swapMeetBookings.filter(booking => booking.swapMeetId === swapMeet.id);
+              const activeMeetBookings = meetBookings.filter(booking => booking.status !== 'cancelled');
+              const bookingCount = activeMeetBookings.length;
+              const hasActiveBookings = activeMeetBookings.length > 0;
+              const bookedStallCount = activeMeetBookings
+                .reduce((total, booking) => total + booking.stallCount, 0);
+              const isUpcoming = swapMeet.date >= new Date().toISOString().slice(0, 10);
+              return (
+                <div key={swapMeet.id} role="button" tabIndex={0} onClick={() => setViewingSwapMeet(swapMeet)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') setViewingSwapMeet(swapMeet); }} className="flex cursor-pointer flex-col gap-3 rounded-lg border border-neutral-700 bg-neutral-800 p-3 transition-colors hover:bg-neutral-700 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="font-medium text-white">{formatDateWithDay(swapMeet.date)}</p>
+                    <p className="text-sm text-neutral-400">{bookedStallCount} of {swapMeet.stallCount} half-tables booked · {bookingCount} bookings</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={event => { event.stopPropagation(); selectSwapMeet(swapMeet); }} disabled={!isUpcoming} className="rounded bg-neutral-700 px-3 py-1.5 text-sm text-white hover:bg-neutral-600 disabled:cursor-not-allowed disabled:bg-neutral-700/50 disabled:text-neutral-500">Edit</button>
+                    <button onClick={event => { event.stopPropagation(); handleDeleteSwapMeet(swapMeet); }} disabled={hasActiveBookings} title={hasActiveBookings ? 'Swap meets with active bookings cannot be deleted' : undefined} className="rounded bg-red-900/60 px-3 py-1.5 text-sm text-red-100 hover:bg-red-900 disabled:cursor-not-allowed disabled:bg-neutral-700 disabled:text-neutral-500">Delete</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+        {viewingSwapMeet && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Swap meet bookings">
+            <div className="max-h-[85vh] w-full max-w-5xl overflow-y-auto rounded-xl border border-neutral-700 bg-neutral-900 p-6 shadow-xl">
+              <div className="flex flex-col gap-3 border-b border-neutral-700 pb-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Swap Meet Bookings</h2>
+                  <p className="mt-1 text-neutral-400">{formatDateWithDay(viewingSwapMeet.date)}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => exportSwapMeetBookings(viewingSwapMeet)} className="rounded bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700">Export CSV</button>
+                  <button onClick={() => setViewingSwapMeet(null)} className="rounded bg-neutral-700 px-3 py-2 text-sm text-white hover:bg-neutral-600">Close</button>
+                </div>
+              </div>
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-neutral-700 text-neutral-400">
+                    <tr><th className="py-2 pr-4">Name</th><th className="py-2 pr-4">Email</th><th className="py-2 pr-4">Half-tables</th><th className="py-2 pr-4">Owes</th><th className="py-2 pr-4">Paid</th><th className="py-2 pr-4">Invoiced</th><th className="py-2">Actions</th></tr>
+                  </thead>
+                  <tbody>
+                    {swapMeetBookings.filter(booking => booking.swapMeetId === viewingSwapMeet.id && booking.status !== 'cancelled').map(booking => {
+                      const bookingUser = users.find(user => user.id === booking.userId);
+                      const isActive = booking.status !== 'cancelled';
+                      const isBusy = swapMeetActionBusyId === booking.id;
+                      return <tr key={booking.id} className="border-b border-neutral-800 text-neutral-200"><td className="py-3 pr-4">{bookingUser?.name ?? booking.userName}</td><td className="py-3 pr-4">{bookingUser?.email ?? 'Unknown'}</td><td className="py-3 pr-4">{booking.stallCount}</td><td className="py-3 pr-4">${booking.amountOwed}</td><td className="py-3 pr-4">{booking.paid ? 'Yes' : 'No'}</td><td className="py-3 pr-4">{booking.invoiced ? 'Yes' : 'No'}</td><td className="py-3"><div className="flex flex-wrap gap-2"><button onClick={() => handleSwapMeetBookingAction(booking, onSwapMeetPaid)} disabled={isBusy || booking.paid || !isActive} className="rounded bg-green-800 px-2 py-1 text-xs text-green-100 hover:bg-green-700 disabled:bg-neutral-700 disabled:text-neutral-500">Paid</button><button onClick={() => handleSwapMeetBookingAction(booking, onSwapMeetInvoiced)} disabled={isBusy || booking.invoiced || !isActive} className="rounded bg-amber-700 px-2 py-1 text-xs text-white hover:bg-amber-600 disabled:bg-neutral-700 disabled:text-neutral-500">Invoice</button><button onClick={() => handleSwapMeetBookingAction(booking, onSwapMeetCancelled, 'Cancel this swap meet booking?')} disabled={isBusy || !isActive} className="rounded bg-red-900/60 px-2 py-1 text-xs text-red-100 hover:bg-red-900 disabled:bg-neutral-700 disabled:text-neutral-500">Cancel</button></div></td></tr>;
+                    })}
+                    {swapMeetBookings.filter(booking => booking.swapMeetId === viewingSwapMeet.id && booking.status !== 'cancelled').length === 0 && <tr><td colSpan={7} className="py-8 text-center text-neutral-500">No bookings for this swap meet.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>}
       {/* Users */}
-      <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
+      {activeTab === 'users' && <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4 gap-3">
             <div className="flex items-center gap-3">
                 <h2 className="text-xl font-bold">Manage Users ({users.length})</h2>
@@ -529,7 +759,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
             </div>
         </div>
-        <div className="mt-4 space-y-2 max-h-[32rem] overflow-y-auto pr-2">
+        <div className="mt-4 space-y-2">
             {filteredUsers.length === 0 && (
                 <div className="text-center py-8 text-neutral-500">No users in this category.</div>
             )}
@@ -619,15 +849,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 );
             })}
         </div>
-      </div>
+      </div>}
       {/* Tables */}
-      <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
+      {activeTab === 'tables' && <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">Manage Tables ({tables.length})</h2>
             <button onClick={() => setEditingTable(defaultTable)} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm">+ Add Table</button>
         </div>
         {editingTable && renderTableForm()}
-        <div className="mt-4 space-y-2 max-h-96 overflow-y-auto pr-2">
+        <div className="mt-4 space-y-2">
             {tables.map(table => (
                 <div key={table.id} draggable onDragStart={(e) => handleDragStart(e, table.id, 'table')} onDragEnd={handleDragEnd} onDragOver={handleDragOver} onDrop={(e) => handleTableDrop(e, table.id)} className={`flex items-center justify-between bg-neutral-800 p-2 rounded ${draggedId === table.id ? 'opacity-40' : ''}`}>
                     <div className="flex items-center gap-2"><div className="cursor-grab text-neutral-500 p-1"><DragHandle /></div><span className="font-medium">{table.name}</span><span className="text-xs text-neutral-400 ml-2 bg-neutral-700 px-2 py-0.5 rounded-full">{table.size}</span></div>
@@ -635,12 +865,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
             ))}
         </div>
-      </div>
+      </div>}
       {/* Terrain */}
-      <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
+      {activeTab === 'terrain' && <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
         <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold">Manage Terrain ({terrainBoxes.length})</h2><button onClick={() => setEditingTerrain(defaultTerrain)} className="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded text-sm">+ Add Terrain</button></div>
         {editingTerrain && renderTerrainForm()}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4 max-h-[40rem] overflow-y-auto pr-2">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 mt-4">
             {terrainBoxes.map(box => (
                 <div key={box.id} draggable onDragStart={(e) => handleDragStart(e, box.id, 'terrain')} onDragEnd={handleDragEnd} onDragOver={handleDragOver} onDrop={(e) => handleTerrainDrop(e, box.id)} className={`bg-neutral-800 rounded-lg overflow-hidden border relative ${box.disabled ? 'border-red-900/50 opacity-60' : 'border-neutral-700'} ${draggedId === box.id ? 'opacity-40' : ''}`}>
                     <div className="absolute top-2 left-2 cursor-grab text-neutral-300 bg-black/30 rounded-full p-1 z-10"><DragHandle /></div>
@@ -653,15 +883,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
             ))}
         </div>
-      </div>
+      </div>}
       {/* Game Systems */}
-      <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
+      {activeTab === 'gameSystems' && <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">
         <h2 className="text-xl font-bold mb-4">Manage Game Systems ({gameSystems.length})</h2>
         <p className="text-sm text-neutral-400 mb-4">Rename game systems to normalize data across all bookings. Renaming will update all existing bookings that use the old name.</p>
         {gameSystems.length === 0 ? (
           <div className="text-center py-8 text-neutral-500">No game systems yet. They are created automatically when members make bookings.</div>
         ) : (
-          <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+          <div className="space-y-2">
             {gameSystems.map(name => (
               <div key={name} className="flex items-center justify-between bg-neutral-800 p-3 rounded-lg border border-neutral-700">
                 {renamingGame === name ? (
@@ -712,7 +942,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             ))}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 };
