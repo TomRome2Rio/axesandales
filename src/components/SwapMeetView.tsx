@@ -72,9 +72,11 @@ export const SwapMeetView: React.FC<SwapMeetViewProps> = ({
   onMarkInvoiced,
   onCancelBooking,
 }) => {
-  const currentBookings = swapMeet
-    ? bookings.filter(booking => booking.swapMeetId === swapMeet.id)
-    : [];
+  const swapMeetId = swapMeet?.id;
+  const currentBookings = useMemo(
+    () => swapMeetId ? bookings.filter(booking => booking.swapMeetId === swapMeetId) : [],
+    [bookings, swapMeetId]
+  );
   const totalStallCount = swapMeet?.stallCount ?? 0;
   const myLatestBooking = user ? currentBookings.find(booking => booking.userId === user.id) : undefined;
   const myBooking = myLatestBooking && isSwapMeetBookingActive(myLatestBooking)
