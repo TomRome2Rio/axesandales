@@ -18,7 +18,7 @@ import { getSelectableDates, getBookableDates } from './constants';
 import { canModifyBooking, getSecondaryTerrainStatus } from './services/bookingService';
 import { sanitizeBookingGameSystem, shouldAutoAddGameSystem } from './utils/bookingFlowHelpers';
 import { resolveSelectedBookingDate } from './utils/bookingDateSelection';
-import { Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeet, SwapMeetBooking } from './types';
+import { AdminAuditEntry, Booking, User, Table, TableSize, TerrainBox, TerrainCategory, ClubEvent, SwapMeet, SwapMeetBooking } from './types';
 
 type PageKey = 'home' | 'about' | 'membership' | 'layout' | 'stats' | 'profile' | 'admin' | 'welcome' | 'events' | 'swapMeet';
 
@@ -94,6 +94,7 @@ const [allBookings, setAllBookings] = useState<Booking[]>([]);
 const activeBookings = allBookings.filter(b => b.status !== 'cancelled');
 const [tables, setTables] = useState<Table[]>([]);
 const [terrainBoxes, setTerrainBoxes] = useState<TerrainBox[]>([]);
+const [terrainAudit, setTerrainAudit] = useState<AdminAuditEntry[]>([]);
 
 // Users state (Fetched from Firebase for Admins)
 const [users, setUsers] = useState<User[]>([]);
@@ -199,6 +200,7 @@ firebaseService.initTerrainBoxesIfEmpty();
 const unsubBookings = firebaseService.subscribeBookings(setAllBookings);
 const unsubTables = firebaseService.subscribeTables(setTables);
 const unsubTerrain = firebaseService.subscribeTerrainBoxes(setTerrainBoxes);
+const unsubTerrainAudit = firebaseService.subscribeTerrainAudit(setTerrainAudit);
 const unsubSchedule = firebaseService.subscribeScheduleConfig((cancelled, special) => {
     setCancelledDates(cancelled);
     setSpecialEventDates(special);
@@ -264,6 +266,7 @@ return () => {
     unsubBookings();
     unsubTables();
     unsubTerrain();
+    unsubTerrainAudit();
     unsubSchedule();
     unsubSiteConfig();
     unsubGameSystems();
@@ -691,6 +694,7 @@ return (
 <AdminView
 tables={tables}
 terrainBoxes={terrainBoxes}
+terrainAudit={terrainAudit}
 users={users}
 allBookings={allBookings}
 cancelledDates={cancelledDates}

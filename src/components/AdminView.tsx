@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Table, TerrainBox, TableSize, TerrainCategory, User, Booking, SwapMeet, SwapMeetBooking } from '../types';
+import { AdminAuditEntry, Table, TerrainBox, TableSize, TerrainCategory, User, Booking, SwapMeet, SwapMeetBooking } from '../types';
 import * as firebaseService from '../services/firebaseService';
 import { generateUUID } from '../utils';
 
 interface AdminViewProps {
   tables: Table[];
   terrainBoxes: TerrainBox[];
+  terrainAudit: AdminAuditEntry[];
   users: User[];
   allBookings: Booking[];
   cancelledDates: string[];
@@ -13,7 +14,7 @@ interface AdminViewProps {
   swapMeets: SwapMeet[];
   swapMeetBookings: SwapMeetBooking[];
   onTablesChange: (tables: Table[]) => void;
-  onTerrainChange: (terrainBoxes: TerrainBox[]) => void;
+  onTerrainChange: (terrainBoxes: TerrainBox[]) => Promise<void>;
   onUsersChange: () => void;
   onCancelledDatesChange: (dates: string[]) => void;
   onSpecialEventDatesChange: (dates: string[]) => void;
@@ -43,7 +44,7 @@ const DragHandle: React.FC = () => (
 );
 
 export const AdminView: React.FC<AdminViewProps> = ({ 
-    tables, terrainBoxes, users, allBookings, cancelledDates, specialEventDates, swapMeets, swapMeetBookings,
+    tables, terrainBoxes, terrainAudit, users, allBookings, cancelledDates, specialEventDates, swapMeets, swapMeetBookings,
     onTablesChange, onTerrainChange, onUsersChange, onCancelledDatesChange, onSpecialEventDatesChange,
     showSwapMeetTab, onShowSwapMeetTabChange, onSwapMeetSave, onSwapMeetDelete,
     onSwapMeetPaid, onSwapMeetInvoiced, onSwapMeetCancelled, onSwapMeetBookingsRefresh,
@@ -84,6 +85,23 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const handleDragEnd = () => setDraggedId(null);
   const handleDragOver = (e: React.DragEvent) => e.preventDefault();
+
+  const recordTerrainAudit = async (
+    action: string,
+    terrain: TerrainBox,
+    details?: string
+  ) => {
+    await firebaseService.addAdminAuditEntry({
+      action,
+      entityType: 'terrain',
+      entityId: terrain.id,
+      entityName: terrain.name,
+      performedBy: currentUser.id,
+      performedByName: currentUser.name,
+      timestamp: Date.now(),
+      ...(details ? { details } : {}),
+    });
+  };
 
   const handleTableDrop = (e: React.DragEvent, dropTargetId: string) => {
     e.preventDefault();
@@ -131,11 +149,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
     let updatedTerrain: TerrainBox;
     if ('id' in editingTerrain) {
         updatedTerrain = editingTerrain as TerrainBox;
-        onTerrainChange(terrainBoxes.map(t => t.id === updatedTerrain.id ? updatedTerrain : t));
+        await onTerrainChange(terrainBoxes.map(t => t.id === updatedTerrain.id ? updatedTerrain : t));
     } else {
         updatedTerrain = { ...editingTerrain, id: `custom-${generateUUID()}` } as TerrainBox;
-        onTerrainChange([...terrainBoxes, updatedTerrain]);
+        await onTerrainChange([...terrainBoxes, updatedTerrain]);
     }
+    await recordTerrainAudit('saved', updatedTerrain);
     // Upload image if a file was selected
     if (terrainImageFile) {
         setTerrainImageUploading(true);
@@ -165,12 +184,19 @@ export const AdminView: React.FC<AdminViewProps> = ({
     }
   }
 
-  const handleDeleteTerrain = (id: string) => {
-    if(confirm('Delete this terrain box?')) onTerrainChange(terrainBoxes.filter(t => t.id !== id));
+  const handleDeleteTerrain = async (id: string) => {
+    const terrain = terrainBoxes.find(box => box.id === id);
+    if (!terrain || !confirm('Delete this terrain box?')) return;
+    await onTerrainChange(terrainBoxes.filter(box => box.id !== id));
+    await recordTerrainAudit('deleted', terrain);
   }
 
-  const handleToggleTerrainDisabled = (id: string) => {
-    onTerrainChange(terrainBoxes.map(t => t.id === id ? { ...t, disabled: !t.disabled } : t));
+  const handleToggleTerrainDisabled = async (id: string) => {
+    const terrain = terrainBoxes.find(box => box.id === id);
+    if (!terrain) return;
+    const updatedTerrain = { ...terrain, disabled: !terrain.disabled };
+    await onTerrainChange(terrainBoxes.map(box => box.id === id ? updatedTerrain : box));
+    await recordTerrainAudit(updatedTerrain.disabled ? 'disabled' : 'enabled', updatedTerrain);
   }
 
   const MAX_EXTENSION_MONTHS = 18; // Cap: membership can't extend more than 18 months from today
@@ -883,6 +909,21 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
             ))}
         </div>
+        <section className="mt-8 border-t border-neutral-700 pt-5">
+          <h3 className="text-lg font-bold text-white">Recent Terrain Changes</h3>
+          {terrainAudit.length === 0 ? (
+            <p className="mt-2 text-sm text-neutral-500">No terrain changes have been recorded yet.</p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {terrainAudit.map(entry => (
+                <div key={entry.id} className="flex flex-col gap-1 rounded bg-neutral-800 p-3 text-sm md:flex-row md:items-center md:justify-between">
+                  <span><span className="font-medium text-white">{entry.entityName}</span> <span className="text-neutral-400">was {entry.action} by {entry.performedByName}</span></span>
+                  <span className="text-xs text-neutral-500">{new Date(entry.timestamp).toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       </div>}
       {/* Game Systems */}
       {activeTab === 'gameSystems' && <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">

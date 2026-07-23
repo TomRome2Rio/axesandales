@@ -86,6 +86,18 @@ export interface SwapMeetBooking {
   cancelledBy?: string;
 }
 
+export interface AdminAuditEntry {
+  id: string;
+  action: string;
+  entityType: 'terrain';
+  entityId: string;
+  entityName: string;
+  performedBy: string;
+  performedByName: string;
+  timestamp: number;
+  details?: string;
+}
+
 export interface SwapMeet {
   id: string;
   date: string;

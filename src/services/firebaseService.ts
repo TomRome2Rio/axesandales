@@ -19,6 +19,7 @@ import {
     query,
     where,
     orderBy,
+    limit,
     Unsubscribe,
     writeBatch,
     runTransaction
@@ -39,6 +40,7 @@ import {
     Table,
     TerrainBox,
     MembershipAuditEntry,
+    AdminAuditEntry,
     ClubEvent,
     SwapMeet,
     SwapMeetBooking,
@@ -683,6 +685,32 @@ export const saveShowSwapMeetTabToDb = async (
     await setDoc(doc(db, 'config', SITE_CONFIG_DOC_ID), {
         showSwapMeetTab,
     }, { merge: true });
+};
+
+export const addAdminAuditEntry = async (
+    entry: Omit<AdminAuditEntry, 'id'>
+): Promise<void> => {
+    const docRef = doc(collection(db, 'adminAudit'));
+    await setDoc(docRef, { ...entry, id: docRef.id });
+};
+
+export const subscribeTerrainAudit = (
+    callback: (entries: AdminAuditEntry[]) => void
+): Unsubscribe => {
+    const q = query(
+        collection(db, 'adminAudit'),
+        orderBy('timestamp', 'desc'),
+        limit(50)
+    );
+    return onSnapshot(q, (snapshot) => {
+        callback(snapshot.docs
+            .map(d => d.data() as AdminAuditEntry)
+            .filter(entry => entry.entityType === 'terrain')
+            .slice(0, 20));
+    }, (error) => {
+        console.error('Error subscribing to terrain audit:', error);
+        callback([]);
+    });
 };
 
 // =====================================================
