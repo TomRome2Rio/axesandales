@@ -1,10 +1,10 @@
 /**
- * One-off script to seed Firestore with initial tables and terrain boxes.
+ * Manually initialise missing default Firestore inventory.
  * 
- * Run with: npx tsx src/scripts/seedFirestore.ts <email> <password>
+ * Run with: npm run init:firestore -- <email> <password>
  * 
- * This will sign in as the given user, then write all tables and terrain boxes
- * from constants.ts into Firestore. Existing docs with the same IDs will be overwritten.
+ * This will sign in as the given user and create only missing default documents.
+ * Existing documents are never overwritten.
  */
 import { config } from 'dotenv';
 // Load .env.local first (local dev), then fall back to .env
@@ -13,7 +13,7 @@ config({ path: '.env' });
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
 
 const firebaseConfig = {
@@ -30,12 +30,12 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-async function seed() {
+async function initialiseFirestore() {
   const email = process.argv[2];
   const password = process.argv[3];
 
   if (!email || !password) {
-    console.error('Usage: npx tsx src/scripts/seedFirestore.ts <email> <password>');
+    console.error('Usage: npm run init:firestore -- <email> <password>');
     process.exit(1);
   }
 
@@ -43,27 +43,37 @@ async function seed() {
   await signInWithEmailAndPassword(auth, email, password);
   console.log('Authenticated successfully.\n');
 
-  console.log('Seeding Firestore...\n');
+  console.log('Initialising missing Firestore documents...\n');
 
-  // Seed tables
-  console.log(`Writing ${INITIAL_TABLES.length} tables...`);
+  // Create missing tables
+  console.log(`Checking ${INITIAL_TABLES.length} tables...`);
   for (const table of INITIAL_TABLES) {
-    await setDoc(doc(db, 'tables', table.id), table);
+    const tableRef = doc(db, 'tables', table.id);
+    if ((await getDoc(tableRef)).exists()) {
+      console.log(`  - ${table.id} already exists, skipping`);
+      continue;
+    }
+    await setDoc(tableRef, table);
     console.log(`  ✓ ${table.id} - ${table.name} (${table.size})`);
   }
 
-  // Seed terrain boxes
-  console.log(`\nWriting ${INITIAL_TERRAIN_BOXES.length} terrain boxes...`);
+  // Create missing terrain boxes
+  console.log(`\nChecking ${INITIAL_TERRAIN_BOXES.length} terrain boxes...`);
   for (const box of INITIAL_TERRAIN_BOXES) {
-    await setDoc(doc(db, 'terrainBoxes', box.id), box);
+    const boxRef = doc(db, 'terrainBoxes', box.id);
+    if ((await getDoc(boxRef)).exists()) {
+      console.log(`  - ${box.id} already exists, skipping`);
+      continue;
+    }
+    await setDoc(boxRef, box);
     console.log(`  ✓ ${box.id} - ${box.name} (${box.category})`);
   }
 
   // Create schedule config doc if missing
-  const configSnap = await getDocs(collection(db, 'config'));
-  if (configSnap.empty) {
+  const scheduleRef = doc(db, 'config', 'schedule');
+  if (!(await getDoc(scheduleRef)).exists()) {
     console.log('\nCreating schedule config...');
-    await setDoc(doc(db, 'config', 'schedule'), {
+    await setDoc(scheduleRef, {
       cancelledDates: [],
       specialEventDates: []
     });
@@ -72,7 +82,7 @@ async function seed() {
     console.log('\nSchedule config already exists, skipping.');
   }
 
-  // Seed game systems
+  // Create missing game systems
   const INITIAL_GAME_SYSTEMS = [
     'Warhammer 40,000',
     'Age of Sigmar',
@@ -99,10 +109,15 @@ async function seed() {
     'Pillage',
   ];
 
-  console.log(`\nWriting ${INITIAL_GAME_SYSTEMS.length} game systems...`);
+  console.log(`\nChecking ${INITIAL_GAME_SYSTEMS.length} game systems...`);
   for (const name of INITIAL_GAME_SYSTEMS) {
     const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    await setDoc(doc(db, 'gameSystems', id), { name });
+    const gameSystemRef = doc(db, 'gameSystems', id);
+    if ((await getDoc(gameSystemRef)).exists()) {
+      console.log(`  - ${id} already exists, skipping`);
+      continue;
+    }
+    await setDoc(gameSystemRef, { name });
     console.log(`  ✓ ${id} - ${name}`);
   }
 
@@ -110,7 +125,7 @@ async function seed() {
   process.exit(0);
 }
 
-seed().catch((err) => {
+initialiseFirestore().catch((err) => {
   console.error('❌ Seed failed:', err);
   process.exit(1);
 });

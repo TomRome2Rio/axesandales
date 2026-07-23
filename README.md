@@ -15,6 +15,20 @@ Create a `.env.local` with your Firebase project values (see **Secrets Managemen
 npm run dev          # local dev server
 ```
 
+## Manual Firestore Initialisation
+
+The application never creates or reseeds tables, terrain boxes, game systems, or
+the schedule configuration automatically. To add any missing default documents,
+run this manually with an administrator's email and password:
+
+```bash
+npm run init:firestore -- <email> <password>
+```
+
+The script only creates documents that are missing. It does not overwrite
+existing inventory, including a terrain set's enabled/disabled state, images, or
+other admin changes.
+
 ## Secrets Management
 
 This project uses **two** mechanisms for secrets, depending on where the secret is consumed.

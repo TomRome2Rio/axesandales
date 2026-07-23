@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { INITIAL_TERRAIN_BOXES } from '../constants';
-import { TerrainCategory, type Booking, type TerrainBox } from '../types';
+import { type Booking } from '../types';
 
 const firestoreMocks = vi.hoisted(() => {
   const doc = vi.fn((first: { path?: string } | unknown, ...segments: string[]) => {
@@ -67,14 +66,6 @@ const makeBooking = (overrides: Partial<Booking> = {}): Booking => ({
   markedUnavailable: false,
   timestamp: 1000,
   status: 'active',
-  ...overrides,
-});
-
-const makeTerrainBox = (overrides: Partial<TerrainBox> = {}): TerrainBox => ({
-  id: 'terrain-custom',
-  name: 'Custom Terrain',
-  category: TerrainCategory.SCIFI,
-  imageUrl: '',
   ...overrides,
 });
 
@@ -152,36 +143,4 @@ describe('firebaseService Firebase adapter behavior', () => {
     );
   });
 
-  it('adds missing default terrain boxes without deleting custom terrain', async () => {
-    const { initTerrainBoxesIfEmpty } = await import('../services/firebaseService');
-    const existingDefault = INITIAL_TERRAIN_BOXES[0];
-    const missingDefault = INITIAL_TERRAIN_BOXES[1];
-    const existingCustom = makeTerrainBox({ id: 'terrain-custom' });
-    firestoreMocks.getDocs
-      .mockResolvedValueOnce({
-        empty: false,
-        docs: [
-          makeDoc(existingDefault.id, existingDefault as unknown as Record<string, unknown>),
-          makeDoc(existingCustom.id, existingCustom as unknown as Record<string, unknown>),
-        ],
-      })
-      .mockResolvedValueOnce({
-        docs: [
-          makeDoc(existingDefault.id, existingDefault as unknown as Record<string, unknown>),
-          makeDoc(existingCustom.id, existingCustom as unknown as Record<string, unknown>),
-        ],
-      });
-
-    await initTerrainBoxesIfEmpty();
-
-    expect(firestoreMocks.deleteDoc).not.toHaveBeenCalled();
-    expect(firestoreMocks.setDoc).toHaveBeenCalledWith(
-      { id: missingDefault.id, path: `terrainBoxes/${missingDefault.id}` },
-      missingDefault
-    );
-    expect(firestoreMocks.setDoc).toHaveBeenCalledWith(
-      { id: existingCustom.id, path: `terrainBoxes/${existingCustom.id}` },
-      existingCustom
-    );
-  });
 });
