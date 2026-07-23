@@ -15,6 +15,8 @@ interface AdminViewProps {
   onUsersChange: () => void;
   onCancelledDatesChange: (dates: string[]) => void;
   onSpecialEventDatesChange: (dates: string[]) => void;
+  showSwapMeetTab: boolean;
+  onShowSwapMeetTabChange: (showSwapMeetTab: boolean) => void;
   currentUser: User;
   gameSystems: string[];
   showToast?: (message: string) => void;
@@ -32,7 +34,8 @@ const DragHandle: React.FC = () => (
 
 export const AdminView: React.FC<AdminViewProps> = ({ 
     tables, terrainBoxes, users, allBookings, cancelledDates, specialEventDates,
-    onTablesChange, onTerrainChange, onUsersChange, onCancelledDatesChange, onSpecialEventDatesChange, 
+    onTablesChange, onTerrainChange, onUsersChange, onCancelledDatesChange, onSpecialEventDatesChange,
+    showSwapMeetTab, onShowSwapMeetTabChange,
     currentUser, gameSystems, showToast
 }) => {
   const [editingTable, setEditingTable] = useState<Table | Partial<Table> | null>(null);
@@ -490,6 +493,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
                  </div>
             </div>
         </div>
+        <label className="mt-6 flex items-center gap-3 border-t border-neutral-700 pt-5 text-neutral-200">
+            <input
+                type="checkbox"
+                checked={showSwapMeetTab}
+                onChange={event => onShowSwapMeetTabChange(event.target.checked)}
+                className="h-4 w-4 rounded border-neutral-600 bg-neutral-900 text-amber-600 focus:ring-amber-500"
+            />
+            <span>Show Swap Meet Tab</span>
+        </label>
       </div>
       {/* Users */}
       <div className="bg-neutral-800/50 rounded-xl p-6 border border-neutral-700">

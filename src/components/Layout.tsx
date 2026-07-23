@@ -10,6 +10,7 @@ export interface LayoutProps {
   onNavigate: (key: NavKey) => void;
   onLogin: () => void;
   onLogout: () => void;
+  showSwapMeetTab: boolean;
   children: ReactNode;
 }
 
@@ -19,6 +20,7 @@ export const Layout: React.FC<LayoutProps> = ({
   onNavigate,
   onLogin,
   onLogout,
+  showSwapMeetTab,
   children,
 }) => {
   const isDev = import.meta.env.DEV;
@@ -68,7 +70,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <nav className="hidden lg:flex items-center gap-1">
             <NavLink to="about">About</NavLink>
             <NavLink to="home">Book a Table</NavLink>
-            <NavLink to="swapMeet">Swap Meet</NavLink>
+            {showSwapMeetTab && <NavLink to="swapMeet">Swap Meet</NavLink>}
             <NavLink to="events">Events</NavLink>
             <NavLink to="membership">Membership</NavLink>
             <NavLink to="layout">Club Layout</NavLink>
@@ -137,7 +139,7 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className="px-4 py-3 space-y-1">
             <NavLink to="about">About</NavLink>
             <NavLink to="home">Book a Table</NavLink>
-            <NavLink to="swapMeet">Swap Meet</NavLink>
+            {showSwapMeetTab && <NavLink to="swapMeet">Swap Meet</NavLink>}
             <NavLink to="events">Events</NavLink>
             <NavLink to="membership">Membership</NavLink>
             <NavLink to="layout">Club Layout</NavLink>

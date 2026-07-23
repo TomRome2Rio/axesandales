@@ -589,6 +589,7 @@ export const removeTerrainImage = async (terrainId: string): Promise<void> => {
 // =====================================================
 
 const CONFIG_DOC_ID = 'schedule';
+const SITE_CONFIG_DOC_ID = 'siteSettings';
 
 export const subscribeScheduleConfig = (callback: (cancelled: string[], specialEvents: string[]) => void): Unsubscribe => {
     const docRef = doc(db, 'config', CONFIG_DOC_ID);
@@ -623,6 +624,26 @@ export const saveSpecialEventDatesToDb = async (dates: string[]): Promise<void> 
     } else {
         await setDoc(docRef, { cancelledDates: [], specialEventDates: dates });
     }
+};
+
+export const subscribeSiteConfig = (
+    callback: (showSwapMeetTab: boolean) => void
+): Unsubscribe => {
+    const docRef = doc(db, 'config', SITE_CONFIG_DOC_ID);
+    return onSnapshot(docRef, (snapshot) => {
+        callback(snapshot.exists() && snapshot.data().showSwapMeetTab === true);
+    }, (error) => {
+        console.error('Error subscribing to site config:', error);
+        callback(false);
+    });
+};
+
+export const saveShowSwapMeetTabToDb = async (
+    showSwapMeetTab: boolean
+): Promise<void> => {
+    await setDoc(doc(db, 'config', SITE_CONFIG_DOC_ID), {
+        showSwapMeetTab,
+    }, { merge: true });
 };
 
 // =====================================================

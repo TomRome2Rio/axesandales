@@ -105,6 +105,8 @@ const [gameSystems, setGameSystems] = useState<string[]>([]);
 const [events, setEvents] = useState<ClubEvent[]>([]);
 const [eventTags, setEventTags] = useState<string[]>([]);
 const [swapMeetBookings, setSwapMeetBookings] = useState<SwapMeetBooking[]>([]);
+const [showSwapMeetTab, setShowSwapMeetTab] = useState(false);
+const [siteConfigLoaded, setSiteConfigLoaded] = useState(false);
 
 const selectableDates = getSelectableDates(specialEventDates, activeBookings, cancelledDates);
 const [selectedDate, setSelectedDate] = useState('');
@@ -196,6 +198,10 @@ const unsubSchedule = firebaseService.subscribeScheduleConfig((cancelled, specia
     setSpecialEventDates(special);
     setScheduleLoaded(true);
 });
+const unsubSiteConfig = firebaseService.subscribeSiteConfig((showSwapMeet) => {
+    setShowSwapMeetTab(showSwapMeet);
+    setSiteConfigLoaded(true);
+});
 const unsubGameSystems = firebaseService.subscribeGameSystems(setGameSystems);
 const unsubEvents = firebaseService.subscribeEvents(setEvents);
 const unsubEventTags = firebaseService.subscribeEventTags(setEventTags);
@@ -252,6 +258,7 @@ return () => {
     unsubTables();
     unsubTerrain();
     unsubSchedule();
+    unsubSiteConfig();
     unsubGameSystems();
     unsubEvents();
     unsubEventTags();
@@ -259,6 +266,12 @@ return () => {
     unsubUsers();
 };
 }, []);
+
+useEffect(() => {
+  if (siteConfigLoaded && !showSwapMeetTab && currentPage === 'swapMeet') {
+    navigateTo('about');
+  }
+}, [currentPage, navigateTo, showSwapMeetTab, siteConfigLoaded]);
 
 useEffect(() => {
 if (!scheduleLoaded) return;
@@ -346,6 +359,9 @@ const handleTablesUpdate = async (updatedTables: Table[]) => { await firebaseSer
 const handleTerrainUpdate = async (updatedTerrain: TerrainBox[]) => { await firebaseService.saveTerrainBoxesToDb(updatedTerrain); };
 const handleCancelledDatesUpdate = async (dates: string[]) => { await firebaseService.saveCancelledDatesToDb(dates); };
 const handleSpecialEventDatesUpdate = async (dates: string[]) => { await firebaseService.saveSpecialEventDatesToDb(dates); };
+const handleShowSwapMeetTabChange = async (showSwapMeet: boolean) => {
+  await firebaseService.saveShowSwapMeetTabToDb(showSwapMeet);
+};
 const handleSwapMeetBookingSave = async (stallCount: number) => {
   const effectiveUser = user || (isDev ? DEV_USER : null);
   if (!effectiveUser) {
@@ -632,7 +648,7 @@ Table Status
 
 return (
 <>
-<Layout user={user} onLogin={() => setIsLoginModalOpen(true)} onLogout={handleLogout} currentPage={currentPage} onNavigate={navigateTo}>
+<Layout user={user} onLogin={() => setIsLoginModalOpen(true)} onLogout={handleLogout} currentPage={currentPage} onNavigate={navigateTo} showSwapMeetTab={showSwapMeetTab}>
 {currentPage === 'home' && renderDashboard()}
 {currentPage === 'about' && <AboutView />}
 {currentPage === 'welcome' && <WelcomeView onNavigate={navigateTo} />}
@@ -640,7 +656,7 @@ return (
 {currentPage === 'layout' && <ClubLayoutView />}
 {currentPage === 'stats' && <StatsView currentUser={user || (isDev ? DEV_USER : null)} showToast={showToast} />}
 {currentPage === 'events' && <EventsView events={events} user={user} eventTags={eventTags} nextClubDate={bookableDates[0] || null} />}
-{currentPage === 'swapMeet' && (
+{currentPage === 'swapMeet' && showSwapMeetTab && (
   <SwapMeetView
     user={user}
     users={users}
@@ -666,6 +682,8 @@ onTerrainChange={handleTerrainUpdate}
 onUsersChange={refreshUsers}
 onCancelledDatesChange={handleCancelledDatesUpdate}
 onSpecialEventDatesChange={handleSpecialEventDatesUpdate}
+showSwapMeetTab={showSwapMeetTab}
+onShowSwapMeetTabChange={handleShowSwapMeetTabChange}
 currentUser={user || DEV_USER}
 gameSystems={gameSystems}
 showToast={showToast}
