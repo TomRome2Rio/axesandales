@@ -192,10 +192,6 @@ const keepPopover = useCallback(() => {
 }, []);
 
 useEffect(() => {
-// Initialize default inventory in Firestore if empty
-firebaseService.initTablesIfEmpty();
-firebaseService.initTerrainBoxesIfEmpty();
-
 // Subscribe to real-time Firestore data
 const unsubBookings = firebaseService.subscribeBookings(setAllBookings);
 const unsubTables = firebaseService.subscribeTables(setTables);

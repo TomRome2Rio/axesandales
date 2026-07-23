@@ -30,7 +30,6 @@ import {
     mapBookingSnapshotData,
 } from './firebaseBookingHelpers';
 import {
-    mergeTerrainBoxesWithDefaults,
     sortFirestoreDocumentsById,
     slugifyFirestoreId,
 } from './firebaseDocumentHelpers';
@@ -46,7 +45,6 @@ import {
     SwapMeetBooking,
     SwapMeetAuditEntry,
 } from '../types';
-import { INITIAL_TABLES, INITIAL_TERRAIN_BOXES } from '../constants';
 import { chunkArray } from '../utils/gameSystemRename';
 import { fileToDataUrl } from '../utils/fileToDataUrl';
 import {
@@ -492,17 +490,6 @@ export const saveTablesToDb = async (tables: Table[]): Promise<void> => {
     await Promise.all([...deletePromises, ...writePromises]);
 };
 
-export const initTablesIfEmpty = async (): Promise<void> => {
-    try {
-        const snapshot = await getDocs(collection(db, 'tables'));
-        if (snapshot.empty) {
-            await saveTablesToDb(INITIAL_TABLES);
-        }
-    } catch (error) {
-        console.error('Error initializing tables in Firestore:', error);
-    }
-};
-
 // =====================================================
 // TERRAIN BOXES
 // =====================================================
@@ -526,25 +513,6 @@ export const saveTerrainBoxesToDb = async (boxes: TerrainBox[]): Promise<void> =
     // Write each terrain box as its own doc
     const writePromises = boxes.map(b => setDoc(doc(db, 'terrainBoxes', b.id), b));
     await Promise.all([...deletePromises, ...writePromises]);
-};
-
-export const initTerrainBoxesIfEmpty = async (): Promise<void> => {
-    try {
-        const snapshot = await getDocs(collection(db, 'terrainBoxes'));
-        if (snapshot.empty) {
-            await saveTerrainBoxesToDb(INITIAL_TERRAIN_BOXES);
-            return;
-        }
-
-        const existingBoxes = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as TerrainBox));
-        const mergedBoxes = mergeTerrainBoxesWithDefaults(existingBoxes, INITIAL_TERRAIN_BOXES);
-        const hasMissingDefaults = INITIAL_TERRAIN_BOXES.some(defaultBox => !existingBoxes.some(box => box.id === defaultBox.id));
-        if (hasMissingDefaults) {
-            await saveTerrainBoxesToDb(mergedBoxes);
-        }
-    } catch (error) {
-        console.error('Error initializing terrain boxes in Firestore:', error);
-    }
 };
 
 // Upload a terrain image as a base64 data URL stored directly in Firestore
