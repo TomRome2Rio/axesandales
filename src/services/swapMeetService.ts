@@ -1,6 +1,5 @@
 import { SwapMeetBooking, User } from '../types';
 
-export const SWAP_MEET_DATE = '2026-07-19';
 export const SWAP_MEET_TOTAL_STALLS = 30;
 export const SWAP_MEET_MAX_STALLS_PER_USER = 4;
 export const SWAP_MEET_STALL_PRICE = 10;
@@ -25,8 +24,9 @@ export const getSwapMeetBookedStallCount = (
   .reduce((total, booking) => total + booking.stallCount, 0);
 
 export const getSwapMeetAvailableStallCount = (
-  bookings: SwapMeetBooking[]
-): number => Math.max(0, SWAP_MEET_TOTAL_STALLS - getSwapMeetBookedStallCount(bookings));
+  bookings: SwapMeetBooking[],
+  totalStallCount = SWAP_MEET_TOTAL_STALLS
+): number => Math.max(0, totalStallCount - getSwapMeetBookedStallCount(bookings));
 
 export const calculateSwapMeetAmountOwed = (
   stallCount: number,
@@ -39,7 +39,8 @@ export const calculateSwapMeetAmountOwed = (
 export const validateSwapMeetStallCount = (
   requestedStallCount: number,
   existingStallCount: number,
-  bookedStallCount: number
+  bookedStallCount: number,
+  totalStallCount = SWAP_MEET_TOTAL_STALLS
 ): SwapMeetValidationResult => {
   if (!Number.isInteger(requestedStallCount)) {
     return { valid: false, error: 'Please choose a whole number of half-tables.' };
@@ -57,7 +58,7 @@ export const validateSwapMeetStallCount = (
   }
 
   const availableAfterCurrentBooking =
-    SWAP_MEET_TOTAL_STALLS - bookedStallCount + existingStallCount;
+    totalStallCount - bookedStallCount + existingStallCount;
   if (requestedStallCount > availableAfterCurrentBooking) {
     return {
       valid: false,
@@ -71,7 +72,8 @@ export const validateSwapMeetStallCount = (
 export const buildSwapMeetBooking = (
   user: User,
   stallCount: number,
-  existingBooking?: SwapMeetBooking | null
+  existingBooking?: SwapMeetBooking | null,
+  swapMeetId = 'local'
 ): SwapMeetBooking => {
   const now = Date.now();
   const isMember = user.isMember || user.isAdmin === true;
@@ -83,6 +85,7 @@ export const buildSwapMeetBooking = (
 
   return {
     id: existingBooking?.id ?? user.id,
+    swapMeetId: existingBooking?.swapMeetId ?? swapMeetId,
     userId: user.id,
     userName: user.name,
     stallCount,

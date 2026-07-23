@@ -25,6 +25,7 @@ dist-ssr
 
 # AI planning
 .ai/
+docs/
 
 # Local secrets (env files with actual values)
 .env.local
